@@ -1,6 +1,6 @@
 FROM php:8.3-fpm
 
-# Install system dependencies (incluyendo las de GD)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
@@ -14,10 +14,8 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure and install GD with JPEG and FreeType support
+# Configure and install GD
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg
-
-# Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
 # Install Composer
@@ -31,13 +29,14 @@ RUN mkdir -p /var/www/sorherminia
 # Set working directory
 WORKDIR /var/www/sorherminia
 
-# Copy setup script
-COPY setup-laravel.sh /usr/local/bin/setup-laravel.sh
-RUN chmod +x /usr/local/bin/setup-laravel.sh
+# Copy your Laravel code from the repository
+COPY laravel-app/ /var/www/sorherminia/
 
-# Create entrypoint script that runs setup and then php-fpm
+# Copy setup scripts
+COPY setup-laravel.sh /usr/local/bin/setup-laravel.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/setup-laravel.sh /usr/local/bin/entrypoint.sh
 
 EXPOSE 9000
+
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
