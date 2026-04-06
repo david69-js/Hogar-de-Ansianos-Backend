@@ -39,12 +39,3 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 9000
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-
-#docker exec -it mysql_sorherminia bash
-
-RUN mysql -u sorherminia_user -p root
-RUN use sorherminia;
-RUN drop table users;
-RUN drop table jobs;
-RUN drop table cache;
-RUN drop table failed_jobs;
