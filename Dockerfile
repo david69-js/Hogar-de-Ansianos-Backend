@@ -1,4 +1,4 @@
-FROM php:8.3-fpm
+FROM php:8.3-apache
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -23,6 +23,15 @@ COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
 ENV COMPOSER_CACHE_DIR=/tmp/composer
 
+# Enable Apache mod_rewrite for Laravel routing
+RUN a2enmod rewrite
+
+# Set Apache document root to Laravel's public directory
+ENV APACHE_DOCUMENT_ROOT=/var/www/sorherminia/public
+RUN sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/sites-available/000-default.conf \
+    && sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/apache2.conf \
+    && sed -ri 's|/var/www/|/var/www/sorherminia/|g' /etc/apache2/apache2.conf
+
 # Create directory structure
 RUN mkdir -p /var/www/sorherminia
 
@@ -37,6 +46,6 @@ COPY setup-laravel.sh /usr/local/bin/setup-laravel.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/setup-laravel.sh /usr/local/bin/entrypoint.sh
 
-EXPOSE 9000
+EXPOSE 80
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
