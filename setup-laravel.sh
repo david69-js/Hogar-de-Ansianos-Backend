@@ -58,15 +58,15 @@ setup_laravel_env() {
     
     echo "Database configuration updated in .env"
     
+    # Install dependencies
+    echo "Installing Composer dependencies..."
+    su -s /bin/bash www-data -c "composer install --no-dev --optimize-autoloader"
+
     # Generate application key if not exists
     if ! grep -q "APP_KEY=base64:" .env; then
         echo "Generating application key..."
         su -s /bin/bash www-data -c "php artisan key:generate --no-interaction"
     fi
-    
-    # Install dependencies
-    echo "Installing Composer dependencies..."
-    su -s /bin/bash www-data -c "composer install --no-dev --optimize-autoloader"
 
     # Create storage directories if they don't exist
     mkdir -p storage/logs
