@@ -2,11 +2,31 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\AuthController;
 
 // Rutas Públicas (No requieren Token)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+// Seeder endpoint — triggers db:seed via HTTP (use with caution in production)
+Route::post('/seed', function () {
+    try {
+        Artisan::call('db:seed', ['--force' => true]);
+        $output = Artisan::output();
+        return response()->json([
+            'success' => true,
+            'message' => 'Database seeded successfully.',
+            'output'  => $output,
+        ], 200);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Seeding failed.',
+            'error'   => $e->getMessage(),
+        ], 500);
+    }
+});
 
 // Rutas Protegidas (Requieren Token de Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
