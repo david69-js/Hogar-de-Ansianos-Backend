@@ -38,6 +38,9 @@ mkdir -p /var/www/sorherminia/storage/framework/sessions
 mkdir -p /var/www/sorherminia/storage/logs
 mkdir -p /var/www/sorherminia/bootstrap/cache
 
+chown -R www-data:www-data /var/www/sorherminia/storage /var/www/sorherminia/bootstrap/cache
+chmod -R ug+rwX /var/www/sorherminia/storage /var/www/sorherminia/bootstrap/cache
+
 export VIEW_COMPILED_PATH="/var/www/sorherminia/storage/framework/views"
 
 echo "Preparing Laravel caches and storage link..."
