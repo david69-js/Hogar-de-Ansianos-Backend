@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->id();
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
-            $table->string('dpi')->nullable();
+            $table->string('dpi')->unique()->nullable();
             $table->date('birth_date')->nullable();
             $table->string('gender')->nullable();
             $table->string('room_number')->nullable();

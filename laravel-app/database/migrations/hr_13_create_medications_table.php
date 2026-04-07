@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('medications', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->nullable();
+            $table->string('name')->unique()->nullable();
             $table->text('description')->nullable();
             $table->string('dosage_form')->nullable();
             $table->timestamps();
