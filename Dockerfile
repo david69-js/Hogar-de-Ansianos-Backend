@@ -32,8 +32,10 @@ RUN echo "ServerName localhost" > /etc/apache2/conf-available/servername.conf \
 
 # Set Apache document root to Laravel's public directory
 ENV APACHE_DOCUMENT_ROOT=/var/www/sorherminia/public
-RUN sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/sites-available/000-default.conf \
-    && sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/apache2.conf
+RUN sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/sites-available/000-default.conf
+
+# Write a clean ports.conf with a placeholder port that entrypoint.sh will replace at runtime
+RUN printf 'Listen PLACEHOLDER_PORT\n\n<IfModule ssl_module>\n\tListen 443\n</IfModule>\n\n<IfModule mod_gnutls.c>\n\tListen 443\n</IfModule>\n' > /etc/apache2/ports.conf
 
 # Set working directory
 WORKDIR /var/www/sorherminia

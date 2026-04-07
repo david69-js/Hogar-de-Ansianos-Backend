@@ -8,8 +8,8 @@ a2dismod mpm_event mpm_worker mpm_prefork >/dev/null 2>&1 || true
 a2enmod mpm_prefork rewrite >/dev/null 2>&1 || true
 
 echo "Configuring Apache to listen on port ${APP_PORT}..."
-sed -i "s|Listen 80|Listen ${APP_PORT}|g" /etc/apache2/ports.conf
-sed -i "s|<VirtualHost \*:80>|<VirtualHost *:${APP_PORT}>|g" /etc/apache2/sites-available/000-default.conf
+sed -i "s|PLACEHOLDER_PORT|${APP_PORT}|g" /etc/apache2/ports.conf
+sed -i "s|<VirtualHost \*:[0-9]*>|<VirtualHost *:${APP_PORT}>|" /etc/apache2/sites-available/000-default.conf
 
 is_valid_app_key() {
   php -r '
