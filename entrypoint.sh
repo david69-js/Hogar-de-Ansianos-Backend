@@ -27,6 +27,11 @@ if ! is_valid_app_key; then
   export APP_KEY="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
 fi
 
+if [ "${CACHE_STORE:-database}" = "database" ] && [ "${ALLOW_DATABASE_CACHE:-false}" != "true" ]; then
+  echo "CACHE_STORE=database detected but cache tables may be missing. Falling back to CACHE_STORE=file."
+  export CACHE_STORE="file"
+fi
+
 echo "Preparing Laravel caches and storage link..."
 php artisan optimize:clear || true
 php artisan storage:link || true

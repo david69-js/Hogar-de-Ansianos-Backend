@@ -51,7 +51,7 @@ docker-compose -f docker-compose.local.yml logs -f
 - `DB_USERNAME=${{MySQL.MYSQL_USER}}`
 - `DB_PASSWORD=${{MySQL.MYSQL_PASSWORD}}`
 - `SESSION_DRIVER=database`
-- `CACHE_STORE=database`
+- `CACHE_STORE=file`
 - `QUEUE_CONNECTION=database`
 - `RUN_MIGRATIONS=true`
 - `APP_KEY=base64:...` (opcional, recomendado fijarlo manualmente)
