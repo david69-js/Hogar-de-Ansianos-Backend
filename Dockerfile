@@ -33,8 +33,7 @@ RUN echo "ServerName localhost" > /etc/apache2/conf-available/servername.conf \
 # Set Apache document root to Laravel's public directory
 ENV APACHE_DOCUMENT_ROOT=/var/www/sorherminia/public
 RUN sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/sites-available/000-default.conf \
-    && sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/apache2.conf \
-    && sed -ri 's|/var/www/|/var/www/sorherminia/|g' /etc/apache2/apache2.conf
+    && sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/apache2.conf
 
 # Set working directory
 WORKDIR /var/www/sorherminia
