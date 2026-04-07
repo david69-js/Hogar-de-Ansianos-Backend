@@ -26,6 +26,10 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 RUN a2dismod mpm_event mpm_worker || true \
     && a2enmod mpm_prefork rewrite
 
+# Set a global ServerName to silence AH00558 warnings in container environments
+RUN echo "ServerName localhost" > /etc/apache2/conf-available/servername.conf \
+    && a2enconf servername
+
 # Set Apache document root to Laravel's public directory
 ENV APACHE_DOCUMENT_ROOT=/var/www/sorherminia/public
 RUN sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/sites-available/000-default.conf \
