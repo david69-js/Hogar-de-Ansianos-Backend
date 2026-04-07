@@ -8,6 +8,12 @@ use App\Http\Controllers\AuthController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// routes/api.php
+Route::post('/seed', function () {
+    \Illuminate\Support\Facades\Artisan::call('db:seed');
+    return response()->json(['message' => 'Seeders executed']);
+});
+
 // Rutas Protegidas (Requieren Token de Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
     
