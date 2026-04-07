@@ -1,9 +1,16 @@
 #!/bin/bash
 set -e
 
-# Run the setup script to initialize DB, run migrations, and install dependencies
-/usr/local/bin/setup-laravel.sh
+# Run standard Laravel caching to optimize performance in production
+echo "Caching configuration and routes..."
+php artisan config:cache || echo "Failed to cache config"
+php artisan route:cache || echo "Failed to cache routes"
+php artisan view:cache || echo "Failed to cache views"
 
-# Start Apache
+# Run database migrations
+echo "Running database migrations..."
+php artisan migrate --force || echo "Migrations failed. Database might not be ready or reachable yet."
+
+# Start Apache in the foreground
 echo "Starting Apache..."
 exec apache2-foreground

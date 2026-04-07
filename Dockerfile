@@ -21,11 +21,13 @@ RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 # Install Composer
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
-ENV COMPOSER_CACHE_DIR=/tmp/composer
 
 # Enable Apache mod_rewrite for Laravel routing
 RUN a2enmod rewrite
-RUN a2dismod mpm_prefork
+
+# Configure Apache to listen on PORT environment variable
+RUN sed -i 's/Listen 80/Listen ${PORT:-80}/g' /etc/apache2/ports.conf
+RUN sed -i 's/<VirtualHost \*:80>/<VirtualHost \*:${PORT:-80}>/g' /etc/apache2/sites-available/000-default.conf
 
 # Set Apache document root to Laravel's public directory
 ENV APACHE_DOCUMENT_ROOT=/var/www/sorherminia/public
@@ -33,20 +35,27 @@ RUN sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/sites-avail
     && sed -ri 's|/var/www/html|${APACHE_DOCUMENT_ROOT}|g' /etc/apache2/apache2.conf \
     && sed -ri 's|/var/www/|/var/www/sorherminia/|g' /etc/apache2/apache2.conf
 
-# Create directory structure
-RUN mkdir -p /var/www/sorherminia
-
 # Set working directory
 WORKDIR /var/www/sorherminia
 
 # Copy your Laravel code from the repository
-COPY laravel-app/ /var/www/sorherminia/
+COPY laravel-app/ .
 
-# Copy setup scripts
-COPY setup-laravel.sh /usr/local/bin/setup-laravel.sh
+# Install composer dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Create necessary directories and set proper permissions
+RUN mkdir -p storage/framework/{sessions,views,cache} \
+    && mkdir -p storage/logs \
+    && mkdir -p bootstrap/cache \
+    && chown -R www-data:www-data /var/www/sorherminia \
+    && chmod -R 775 storage bootstrap/cache
+
+# Copy entrypoint
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/setup-laravel.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# The default EXPOSE is useful as a fallback
 EXPOSE 80
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
