@@ -32,6 +32,14 @@ if [ "${CACHE_STORE:-database}" = "database" ] && [ "${ALLOW_DATABASE_CACHE:-fal
   export CACHE_STORE="file"
 fi
 
+mkdir -p /var/www/sorherminia/storage/framework/views
+mkdir -p /var/www/sorherminia/storage/framework/cache/data
+mkdir -p /var/www/sorherminia/storage/framework/sessions
+mkdir -p /var/www/sorherminia/storage/logs
+mkdir -p /var/www/sorherminia/bootstrap/cache
+
+export VIEW_COMPILED_PATH="/var/www/sorherminia/storage/framework/views"
+
 echo "Preparing Laravel caches and storage link..."
 php artisan optimize:clear || true
 php artisan storage:link || true
