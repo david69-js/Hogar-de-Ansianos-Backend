@@ -25,6 +25,7 @@ ENV COMPOSER_CACHE_DIR=/tmp/composer
 
 # Enable Apache mod_rewrite for Laravel routing
 RUN a2enmod rewrite
+RUN a2dismod mpm_prefork
 
 # Set Apache document root to Laravel's public directory
 ENV APACHE_DOCUMENT_ROOT=/var/www/sorherminia/public
