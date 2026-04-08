@@ -14,12 +14,12 @@ return new class extends Migration {
             $table->id();
             $table->string('first_name');
             $table->string('last_name');
-            $table->string('dpi')->unique()->nullable();
-            $table->string('phone')->nullable();
+            $table->string('dpi')->unique()->isNotEmpty();
+            $table->string('phone')->isNotEmpty();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->string('role')->nullable();
+            $table->string('role')->isNotEmpty();
             $table->string('position')->nullable();
             $table->date('hire_date')->nullable();
             $table->text('address')->nullable();

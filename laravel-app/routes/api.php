@@ -20,10 +20,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth endpoints adicionales
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-
+    
     // Rutas Reales CRUD completas (Protegidas)
-    Route::apiResource('residents', App\Http\Controllers\ResidentController::class);
     Route::apiResource('users', App\Http\Controllers\UserController::class);
+    Route::apiResource('residents', App\Http\Controllers\ResidentController::class);
     Route::apiResource('jobs', App\Http\Controllers\JobController::class);
     Route::apiResource('audit-logs', App\Http\Controllers\AuditLogController::class);
     Route::apiResource('diseases', App\Http\Controllers\DiseaseController::class);

@@ -59,7 +59,10 @@ class RolesAndPermissionsSeeder extends Seeder
                 'first_name' => 'Super',
                 'last_name' => 'Administrador',
                 'password' => Hash::make('password123'),
-                'status' => 'active'
+                'status' => 'active',
+                'dpi' => '0000000000000',
+                'phone' => '00000000',
+                'role' => 'Admin'
             ]
         );
         $adminUser->assignRole('Admin');
