@@ -107,4 +107,30 @@ class AuthController extends Controller
             'permissions' => $user->getAllPermissions()->pluck('name')
         ], 200);
     }
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $validatedData = $request->validate([
+            'first_name' => 'sometimes|string|max:255',
+            'last_name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
+            'password' => 'sometimes|string|min:8',
+            'phone' => 'sometimes|string',
+            'address' => 'sometimes|string',
+            'emergency_contact' => 'sometimes|string',
+            'emergency_phone' => 'sometimes|string',
+        ]);
+
+        if (isset($validatedData['password'])) {
+            $validatedData['password'] = Hash::make($validatedData['password']);
+        }
+
+        $user->update($validatedData);
+
+        return response()->json([
+            'message' => 'Perfil actualizado exitosamente',
+            'user' => $user
+        ], 200);
+    }
 }

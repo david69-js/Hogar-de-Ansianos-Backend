@@ -9,8 +9,36 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // routes/api.php
 Route::post('/seed', function () {
-    \Illuminate\Support\Facades\Artisan::call('db:seed');
-    return response()->json(['message' => 'Seeders executed']);
+    try {
+        \Illuminate\Support\Facades\Artisan::call('db:seed');
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        return response()->json(['message' => 'Seeders executed', 'output' => $output]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
+Route::get('/debug', function () {
+    try {
+        $tables = \Illuminate\Support\Facades\DB::select("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'");
+        $userCount = \App\Models\User::count();
+        $users = \App\Models\User::select('id', 'email', 'status', 'role')->get();
+
+        $rolesTableExists = \Illuminate\Support\Facades\Schema::hasTable('roles');
+        $roles = $rolesTableExists
+            ? \Spatie\Permission\Models\Role::all(['id', 'name'])
+            : 'tabla roles no existe';
+
+        return response()->json([
+            'db_tables' => $tables,
+            'user_count' => $userCount,
+            'users' => $users,
+            'roles_table_exists' => $rolesTableExists,
+            'roles' => $roles,
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
 });
 
 // Rutas Protegidas (Requieren Token de Sanctum)
@@ -19,6 +47,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Auth endpoints adicionales
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::put('/me', [AuthController::class, 'updateProfile']);
     
     // Rutas Reales CRUD completas (Protegidas)
     Route::apiResource('users', App\Http\Controllers\UserController::class);
