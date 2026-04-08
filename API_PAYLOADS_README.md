@@ -1,19 +1,52 @@
 # Documentación de la API - Hogar de Ancianos Sor Herminia
 
-Esta documentación describe la estructura esperada (Payloads en JSON) para enviar información (Crear/Actualizar) a los principales endpoints de la API. 
+Esta documentación describe la estructura esperada (Payloads en JSON) para enviar información (Crear/Actualizar) a los endpoints de la API, basados exactamente en tu archivo de rutas (`routes/api.php`).
 
-Todos los endpoints (excepto `/api/login` y `/api/register`) requieren un **Bearer Token** en los headers de la petición:
-```http
-Authorization: Bearer {tu_token_aqui}
-Accept: application/json
-Content-Type: application/json
+## Autenticación (Rutas Públicas)
+
+### 1. Registro Automático (`POST /api/register`)
+Se usa para registrar nuevos miembros del personal interno (por defecto se les asigna rol Staff).
+```json
+{
+  "first_name": "Laura",
+  "last_name": "Méndez",
+  "dpi": "3000400050101",
+  "phone": "55551234",
+  "email": "laura@ejemplo.com",
+  "password": "password123",
+  "role": "Enfermera"
+}
+```
+
+### 2. Inicio de Sesión (`POST /api/login`)
+El usuario se loguea para recibir su Token de Acceso (`access_token`).
+```json
+{
+  "email": "laura@ejemplo.com",
+  "password": "password123"
+}
 ```
 
 ---
 
-## 1. Usuarios (`/api/users`)
-Ruta para gestionar al personal médico, enfermeras, y administradores.
+## 🔒 Rutas Protegidas (Requieren Bearer Token)
+Todos los siguientes endpoints requieren que envíes en tus headers:
+```http
+Authorization: Bearer {tu_token_recibido_en_el_login}
+Accept: application/json
+Content-Type: application/json
+```
 
+### 3. Endpoints Secundarios de Auth
+- `POST /api/logout`: Cierra sesión y destruye el token (No necesita body).
+- `GET /api/me`: Devuelve la información del usuario en sesión actualmente, sus roles y permisos. (No necesita body).
+
+---
+
+## Mantenimientos Principales (CRUDs)
+
+### 4. Usuarios (`/api/users`)
+Ruta administrativa (CRUD) para gestionar todo el personal médico, enfermeras, y administradores.
 **POST /api/users**
 ```json
 {
@@ -23,23 +56,17 @@ Ruta para gestionar al personal médico, enfermeras, y administradores.
   "phone": "55554444",
   "email": "juan.perez@ejemplo.com",
   "password": "password123",
-  "password_confirmation": "password123",
-  "role": "Admin", 
-  "position": "Médico General",
+  "role": "Doctor", 
+  "position": "Médico Especialista",
   "hire_date": "2026-04-01",
-  "address": "Ciudad de Guatemala, Zona 1",
-  "emergency_contact": "Maria Pérez",
-  "emergency_phone": "55553333",
+  "address": "Ciudad, Zona 1",
+  "profile_image": "url-de-foto.jpg",
   "status": "active"
 }
 ```
-* **Tipos de datos:** Todos los campos son `string`, a excepción de las fechas que usan formato `YYYY-MM-DD`. `dpi`, `phone` y `role` son obligatorios.
 
----
-
-## 2. Residentes (`/api/residents`)
-Gestiona a los ancianos ingresados en el hogar.
-
+### 5. Residentes (`/api/residents`)
+Gestionar ancianos pacientes.
 **POST /api/residents**
 ```json
 {
@@ -53,16 +80,25 @@ Gestiona a los ancianos ingresados en el hogar.
   "blood_type": "O+",
   "emergency_contact": "Lucía González",
   "emergency_phone": "55556666",
-  "notes": "Alérgico al maní y requiere asistencia para caminar.",
+  "notes": "Alérgico al maní.",
   "status": "active"
 }
 ```
 
----
+### 6. Imágenes de Residente (`/api/resident-images`)
+Subir fotos o documentos del residente.
+**POST /api/resident-images**
+```json
+{
+  "resident_id": 1,
+  "image_path": "ruta/en/storage/foto.png",
+  "image_type": "Perfil",
+  "uploaded_by": 2
+}
+```
 
-## 3. Signos Vitales (`/api/resident-vitals`)
-Registro diario de signos vitales para un residente.
-
+### 7. Signos Vitales (`/api/resident-vitals`)
+Registro diario de signos vitales.
 **POST /api/resident-vitals**
 ```json
 {
@@ -76,49 +112,9 @@ Registro diario de signos vitales para un residente.
   "recorded_at": "2026-04-07 10:30:00"
 }
 ```
-* **Tipos de datos:** `weight` y `temperature` son decimales (`numeric`). `heart_rate` y `oxygen_saturation` son enteros (`integer`). `resident_id` es obligatorio.
 
----
-
-## 4. Medicamentos Base (`/api/medications`)
-Catálogo general de medicinas disponibles.
-
-**POST /api/medications**
-```json
-{
-  "name": "Ibuprofeno 400mg",
-  "description": "Antiinflamatorio no esteroideo utilizado para el alivio del dolor.",
-  "side_effects": "Malestar estomacal, náuseas.",
-  "contraindications": "No tomar si es alérgico a los AINE o tiene úlceras."
-}
-```
-
----
-
-## 5. Recetas Médicas / Prescripciones (`/api/prescriptions`)
-Receta asignada a un residente específico por un doctor.
-
-**POST /api/prescriptions**
-```json
-{
-  "resident_id": 1,
-  "medication_id": 5,
-  "prescribed_by": 2,
-  "dosage": "1 pastilla (400mg)",
-  "frequency": "Cada 8 horas",
-  "start_date": "2026-04-07",
-  "end_date": "2026-04-14",
-  "instructions": "Tomar después de comer para evitar malestar estomacal.",
-  "status": "active"
-}
-```
-* **Tipos de datos:** Requiere los IDs relacionales (`resident_id`, `medication_id`, `prescribed_by` el cual es un user_id validos).
-
----
-
-## 6. Enfermedades (`/api/diseases`)
-Catálogo de enfermedades (CIE-10).
-
+### 8. Enfermedades (Catálogo CIE-10) (`/api/diseases`)
+Catálogo general de enfermedades existentes.
 **POST /api/diseases**
 ```json
 {
@@ -128,11 +124,98 @@ Catálogo de enfermedades (CIE-10).
 }
 ```
 
+### 9. Diagnósticos a Residente (`/api/disease-resident-assignments`)
+Asignar una enfermedad a un paciente (diagnóstico).
+**POST /api/disease-resident-assignments**
+```json
+{
+  "resident_id": 1,
+  "disease_id": 2,
+  "diagnosed_at": "2026-04-01",
+  "notes": "Diagnosticado por Dr. Juan, requiere monitoreo."
+}
+```
+
 ---
 
-## 7. Reportes de Residente (`/api/resident-reports`)
-Reportes diarios o de incidentes del personal de enfermería o médico.
+## Farmacia y Recetas
 
+### 10. Medicamentos Base (`/api/medications`)
+Catálogo de la farmacia.
+**POST /api/medications**
+```json
+{
+  "name": "Ibuprofeno 400mg",
+  "description": "Antiinflamatorio.",
+  "side_effects": "Náuseas.",
+  "contraindications": "Alergias a AINEs."
+}
+```
+
+### 11. Prescripciones Médicas (`/api/prescriptions`)
+Receta asignada a un residente.
+**POST /api/prescriptions**
+```json
+{
+  "resident_id": 1,
+  "medication_id": 5,
+  "prescribed_by": 2,
+  "dosage": "1 pastilla",
+  "frequency": "Cada 8 horas",
+  "start_date": "2026-04-07",
+  "end_date": "2026-04-14",
+  "instructions": "Con comidas.",
+  "status": "active"
+}
+```
+
+### 12. Horarios de Medicamentos (`/api/medication-schedules`)
+Horarios fijos donde toca dar pastillas.
+**POST /api/medication-schedules**
+```json
+{
+  "prescription_id": 10,
+  "scheduled_time": "14:00:00"
+}
+```
+
+### 13. Alertas de Medicamentos (`/api/medication-alerts`)
+Generación de alertas si toca administrar medicinas.
+**POST /api/medication-alerts**
+```json
+{
+  "prescription_id": 10,
+  "resident_id": 1,
+  "scheduled_time": "2026-04-07 14:00:00",
+  "alert_type": "Recordatorio"
+}
+```
+
+### 14. Logs/Registro de Administración (`/api/medication-logs`)
+Historial llenado por enfermeras luego de dar (u omitir) medicamento.
+**POST /api/medication-logs**
+```json
+{
+  "schedule_id": 5,
+  "administered_by": 3,
+  "scheduled_time": "2026-04-07 14:00:00",
+  "administered_time": "2026-04-07 14:05:00",
+  "status": "Tomado",
+  "delay_minutes": 5,
+  "error_type": null,
+  "administered_dose": "1 pastilla",
+  "reason_for_omission": null,
+  "notes": "Todo en orden",
+  "claimed_by": 3,
+  "claimed_at": "2026-04-07 14:05:00"
+}
+```
+
+---
+
+## Otros y Sistema
+
+### 15. Reportes de Residente (`/api/resident-reports`)
 **POST /api/resident-reports**
 ```json
 {
@@ -140,14 +223,48 @@ Reportes diarios o de incidentes del personal de enfermería o médico.
   "user_id": 3,
   "report_date": "2026-04-07",
   "report_type": "Rutina",
-  "description": "El residente durmió bien pero presenta poco apetito en el desayuno.",
-  "status": "active"
+  "description": "El residente durmió bien.",
+  "status": "Revisado"
 }
 ```
 
----
+### 16. Notificaciones (`/api/notifications`)
+Sistema de mensajería o notificaciones en app.
+**POST /api/notifications**
+```json
+{
+  "resident_id": 1,
+  "message": "Es hora del chequeo mensual.",
+  "scheduled_for": "2026-04-08 08:00:00",
+  "sent_at": null,
+  "status": "Pendiente"
+}
+```
 
-## Resumen de Reglas Generales
-1. **Atributos de Relación**: Todo lo que termine en `_id` (ej. `resident_id`) espera un número entero (ID) válido que ya exista en esa tabla.
-2. **Fechas**: Usar formato ISO 8601 (`YYYY-MM-DD` para `date` y `YYYY-MM-DD HH:MM:SS` para `datetime/timestamp`).
-3. **Paginación**: Todos los endpoints `GET` devuelven colecciones envueltas en un objeto `"data": [...]` por defecto si utilizas API Resources de Laravel.
+### 17. Registro de Auditoría (`/api/audit-logs`)
+Bitácora de movimientos (generalmente llenada automáticamente por Eventos en el backend, no desde el UI manualmente).
+**POST /api/audit-logs**
+```json
+{
+  "user_id": 1,
+  "action": "UPDATE",
+  "table_name": "residents",
+  "record_id": 15,
+  "old_values": "{\"status\":\"active\"}",
+  "new_values": "{\"status\":\"inactive\"}"
+}
+```
+
+### 18. Jobs de Sistema (`/api/jobs`)
+*(Nota: Rara vez querrás manipular esta tabla manualmente a través del controlador REST, ya que Laravel la usa automáticamente para encolar trabajos, pero su esquema requiere esto:)*
+**POST /api/jobs**
+```json
+{
+  "queue": "default",
+  "payload": "{... json interno ...}",
+  "attempts": 0,
+  "reserved_at": null,
+  "available_at": 1690000000,
+  "created_at": 1690000000
+}
+```
