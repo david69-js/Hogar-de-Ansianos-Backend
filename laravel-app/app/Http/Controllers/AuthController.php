@@ -16,6 +16,9 @@ class AuthController extends Controller
             'last_name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8',
+            'dpi' => 'required|string',
+            'phone' => 'required|string',
+            'role' => 'required|string',
         ]);
 
         $user = User::create([
@@ -23,6 +26,9 @@ class AuthController extends Controller
             'last_name' => $validatedData['last_name'],
             'email' => $validatedData['email'],
             'password' => Hash::make($validatedData['password']),
+            'dpi' => $validatedData['dpi'],
+            'phone' => $validatedData['phone'],
+            'role' => $validatedData['role'],
             'status' => 'active'
         ]);
 
