@@ -4,21 +4,7 @@ Esta documentación describe la estructura esperada (Payloads en JSON) para envi
 
 ## Autenticación (Rutas Públicas)
 
-### 1. Registro Automático (`POST /api/register`)
-Se usa para registrar nuevos miembros del personal interno (por defecto se les asigna rol Staff).
-```json
-{
-  "first_name": "Laura",
-  "last_name": "Méndez",
-  "dpi": "3000400050101",
-  "phone": "55551234",
-  "email": "laura@ejemplo.com",
-  "password": "password123",
-  "role": "Enfermera"
-}
-```
-
-### 2. Inicio de Sesión (`POST /api/login`)
+### 1. Inicio de Sesión (`POST /api/login`)
 El usuario se loguea para recibir su Token de Acceso (`access_token`).
 ```json
 {
