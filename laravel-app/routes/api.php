@@ -24,7 +24,7 @@ Route::post('/seed', function () {
         ], 500);
     }
 });
-
+ Route::get('users', [App\Http\Controllers\UserController::class, 'index']);
 // Rutas Protegidas (Requieren Token de Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
     
