@@ -25,7 +25,7 @@ Route::post('/seed', function () {
     }
 });
 
-//Route::get('users', [App\Http\Controllers\UserController::class, 'index']);
+Route::get('users', [App\Http\Controllers\UserController::class, 'index']);
 // Rutas Protegidas (Requieren Token de Sanctum)
 Route::middleware('auth:sanctum')->group(function () {
     
@@ -35,7 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/me', [AuthController::class, 'updateProfile']);
     
     // Rutas Reales CRUD completas (Protegidas)
-    Route::apiResource('users', App\Http\Controllers\UserController::class);
+    //Route::apiResource('users', App\Http\Controllers\UserController::class);
     Route::apiResource('residents', App\Http\Controllers\ResidentController::class);
     Route::apiResource('jobs', App\Http\Controllers\JobController::class);
     Route::apiResource('audit-logs', App\Http\Controllers\AuditLogController::class);
