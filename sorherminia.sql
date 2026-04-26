@@ -170,6 +170,34 @@ Table medication_alerts {
   alert_type varchar  // 'upcoming', 'overdue', 'missed'
   created_at timestamp
 }
+// Stock actual de cada medicamento
+Table medication_inventory {
+  id bigint [pk, increment]
+  medication_id bigint [unique]  // Un registro por medicamento
+  current_stock decimal          // Unidades disponibles actualmente
+  unit varchar                   // 'tabletas', 'ml', 'ampollas', 'sobres'
+  minimum_stock decimal          // Umbral mínimo antes de generar alerta
+  last_updated_by bigint
+  updated_at timestamp
+}
+
+// Cada movimiento que afecta el stock
+Table inventory_movements {
+  id bigint [pk, increment]
+  medication_id bigint
+  movement_type varchar    // 'ingreso', 'consumo', 'ajuste', 'vencimiento', 'perdida'
+  quantity decimal         // Positivo = entrada, Negativo = salida
+  reason text              // Descripción del movimiento
+  medication_log_id bigint [null]  // Si fue por administración, referencia al log
+  performed_by bigint
+  created_at timestamp
+}
+
+Ref: medication_inventory.medication_id > medications.id
+Ref: medication_inventory.last_updated_by > users.id
+Ref: inventory_movements.medication_id > medications.id
+Ref: inventory_movements.medication_log_id > medication_logs.id
+Ref: inventory_movements.performed_by > users.id
 
 // ✅ RELACIONES CORREGIDAS
 Ref: audit_logs.user_id > users.id

@@ -6,7 +6,7 @@ use App\Http\Controllers\AuthController;
 
 // Rutas Públicas (No requieren Token)
 Route::post('/login', [AuthController::class, 'login']);
-
+ Route::get('users', [App\Http\Controllers\UserController::class, 'index']);
 // routes/api.php
 Route::post('/seed', function () {
     try {
@@ -34,7 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/me', [AuthController::class, 'updateProfile']);
     
     // Rutas Reales CRUD completas (Protegidas)
-    Route::apiResource('users', App\Http\Controllers\UserController::class);
+   // Route::apiResource('users', App\Http\Controllers\UserController::class);
     Route::apiResource('residents', App\Http\Controllers\ResidentController::class);
     Route::apiResource('jobs', App\Http\Controllers\JobController::class);
     Route::apiResource('audit-logs', App\Http\Controllers\AuditLogController::class);
