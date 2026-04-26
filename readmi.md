@@ -117,7 +117,7 @@ docker exec -it laravel-sorherminia-app bash
 
 3. Ver logs:
 ```bash
-docker-compose -f docker-compose.local.yml logs -f
+docker logs -f laravel-sorherminia-app
 ```
 
 

@@ -43,7 +43,7 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         // ENFERMERA
-        $roleNurse = Role::firstOrCreate(['name' => 'Nurse', 'guard_name' => 'web']);
+        $roleNurse = Role::firstOrCreate(['name' => 'Enfermera', 'guard_name' => 'web']);
         $roleNurse->givePermissionTo([
              'view_residents', 'view_reports'
         ]);
