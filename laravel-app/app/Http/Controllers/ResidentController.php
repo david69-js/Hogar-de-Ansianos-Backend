@@ -27,7 +27,6 @@ class ResidentController extends Controller
             'last_name' => 'required|string|max:255',
             'dpi' => 'nullable|string|max:255',
             'birth_date' => 'nullable|date',
-            // Puedes agregar las demás validaciones aquí
         ]);
 
         $resident = Resident::create($request->all());
