@@ -50,4 +50,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('medication-alerts', App\Http\Controllers\MedicationAlertController::class);
     Route::apiResource('medication-schedules', App\Http\Controllers\MedicationScheduleController::class);
     Route::apiResource('medication-logs', App\Http\Controllers\MedicationLogController::class);
+
+    // Push notifications (Firebase Cloud Messaging)
+    Route::post('/device-tokens', [App\Http\Controllers\DeviceTokenController::class, 'store']);
+    Route::delete('/device-tokens', [App\Http\Controllers\DeviceTokenController::class, 'destroy']);
+    Route::post('/device-tokens/test', [App\Http\Controllers\DeviceTokenController::class, 'test']);
 });
