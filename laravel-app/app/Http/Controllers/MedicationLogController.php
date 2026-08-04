@@ -3,7 +3,13 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Medication;
 use App\Models\MedicationLog;
+use App\Models\MedicationSchedule;
+use App\Models\MedicationStockMovement;
+use App\Models\Prescription;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class MedicationLogController extends Controller
 {
@@ -21,11 +27,74 @@ class MedicationLogController extends Controller
 
     public function store(Request $request)
     {
-        $item = MedicationLog::create($request->all());
-        return response()->json([
-            'message' => 'Creado exitosamente',
-            'data' => $item
-        ], 201);
+        $data = $request->validate([
+            'schedule_id' => ['required', 'exists:medication_schedules,id'],
+            'scheduled_time' => ['required', 'date'],
+            'administered_time' => ['nullable', 'date', 'required_if:status,administered'],
+            'status' => ['required', 'in:administered,missed'],
+            'reason_for_omission' => ['nullable', 'string', 'required_if:status,missed'],
+            'administered_by' => ['nullable', 'exists:users,id'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        // El retraso se calcula en el servidor (no se confía en lo que mande el cliente)
+        // para que quede un registro confiable de qué tan tarde se administró.
+        if ($data['status'] === 'administered' && !empty($data['administered_time'])) {
+            $data['delay_minutes'] = max(0, (int) Carbon::parse($data['scheduled_time'])
+                ->diffInMinutes(Carbon::parse($data['administered_time']), false));
+        }
+
+        return DB::transaction(function () use ($data) {
+            $item = MedicationLog::create($data);
+
+            if ($data['status'] === 'administered') {
+                $this->decrementStockForSchedule((int) $data['schedule_id'], $item);
+            }
+
+            return response()->json([
+                'message' => 'Creado exitosamente',
+                'data' => $item
+            ], 201);
+        });
+    }
+
+    // Descuenta 1 unidad del stock del medicamento asociado al horario, sin bloquear la
+    // administración si el stock ya está en 0 (registrar la dosis real dada al residente
+    // es más importante que un contador de inventario exacto). Queda su propio movimiento
+    // en el kardex, enlazado al log, para poder auditar de dónde salió cada descuento.
+    private function decrementStockForSchedule(int $scheduleId, MedicationLog $log): void
+    {
+        $schedule = MedicationSchedule::find($scheduleId);
+        if (!$schedule) {
+            return;
+        }
+        $prescription = Prescription::find($schedule->prescription_id);
+        if (!$prescription) {
+            return;
+        }
+        $medication = Medication::lockForUpdate()->find($prescription->medication_id);
+        if (!$medication) {
+            return;
+        }
+
+        $resultingStock = max(0, $medication->stock_quantity - 1);
+        $delta = $resultingStock - $medication->stock_quantity;
+        if ($delta === 0) {
+            return;
+        }
+
+        $medication->stock_quantity = $resultingStock;
+        $medication->save();
+
+        MedicationStockMovement::create([
+            'medication_id' => $medication->id,
+            'type' => 'salida',
+            'quantity' => $delta,
+            'resulting_stock' => $resultingStock,
+            'reason' => 'Administrado automáticamente',
+            'medication_log_id' => $log->id,
+            'created_by' => $log->administered_by,
+        ]);
     }
 
     public function update(Request $request, $id)

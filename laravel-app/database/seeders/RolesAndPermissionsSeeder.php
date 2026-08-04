@@ -24,7 +24,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'edit_residents',
             'delete_residents',
             'manage_medications',
+            'administer_medications',
             'view_reports',
+            'manage_inventory',
         ];
 
         foreach ($permissions as $permission) {
@@ -39,13 +41,15 @@ class RolesAndPermissionsSeeder extends Seeder
         // DOCTOR
         $roleDoctor = Role::firstOrCreate(['name' => 'Doctor', 'guard_name' => 'web']);
         $roleDoctor->givePermissionTo([
-            'view_residents', 'create_residents', 'edit_residents', 'manage_medications', 'view_reports'
+            'view_residents', 'create_residents', 'edit_residents', 'manage_medications', 'administer_medications', 'view_reports'
         ]);
 
         // ENFERMERA
+        // Aunque solo puede ver residentes (no crearlos/editarlos), sí necesita poder
+        // marcar medicamentos como administrados/no administrados: es su tarea principal.
         $roleNurse = Role::firstOrCreate(['name' => 'Enfermera', 'guard_name' => 'web']);
         $roleNurse->givePermissionTo([
-             'view_residents', 'view_reports'
+             'view_residents', 'administer_medications', 'view_reports'
         ]);
         
         // STAFF GENERAL

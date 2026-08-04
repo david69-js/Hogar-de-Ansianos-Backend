@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Revisa cada minuto si algún medicamento quedó pendiente y avisa por push.
 Schedule::command('app:check-pending-medications')->everyMinute();
+
+// Revisa el inventario una vez al día (stock bajo, próximo a vencer, vencido).
+Schedule::command('app:check-medication-stock')->dailyAt('07:00');

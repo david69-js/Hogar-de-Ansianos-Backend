@@ -11,6 +11,7 @@ use App\Models\Prescription;
 use App\Models\Resident;
 use App\Services\FirebaseService;
 use Illuminate\Console\Command;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 
 class CheckPendingMedications extends Command
@@ -27,14 +28,17 @@ class CheckPendingMedications extends Command
      *
      * @var string
      */
-    protected $description = 'Envía una notificación push cuando a un residente le toca un medicamento y aún no ha sido administrado.';
+    protected $description = 'Envía notificaciones push en 3 momentos de cada horario: 15 min antes, al llegar la hora, y 15 min después si sigue sin administrarse.';
 
     /**
-     * Ventana de tolerancia (en minutos) desde que llega la hora programada:
-     * evita mandar avisos de horarios que quedaron pendientes de hace mucho tiempo
-     * (por ejemplo, si el servidor estuvo caído) en vez de solo los recién vencidos.
+     * Cuántos minutos antes de la hora programada se manda el primer aviso.
      */
-    private const LOOKBACK_MINUTES = 15;
+    private const REMINDER_BEFORE_MINUTES = 15;
+
+    /**
+     * A partir de cuántos minutos de retraso se manda el aviso de "sigue pendiente".
+     */
+    private const REMINDER_DELAYED_MINUTES = 15;
 
     public function handle(FirebaseService $firebase): int
     {
@@ -79,16 +83,7 @@ class CheckPendingMedications extends Command
 
             $minutesUntilDue = $now->diffInMinutes($scheduledDateTime, false);
 
-            // Aún no le toca (la hora programada está en el futuro).
-            if ($minutesUntilDue > 0) {
-                continue;
-            }
-            // Ya pasó hace demasiado tiempo, no seguir avisando de horarios viejos.
-            if ($minutesUntilDue < -self::LOOKBACK_MINUTES) {
-                continue;
-            }
-
-            // ¿Ya se administró hoy?
+            // Ya se administró hoy: no tiene sentido seguir recordando este horario.
             $alreadyAdministered = MedicationLog::where('schedule_id', $schedule->id)
                 ->whereDate('scheduled_time', $todayKey)
                 ->exists();
@@ -96,13 +91,33 @@ class CheckPendingMedications extends Command
                 continue;
             }
 
-            // ¿Ya se avisó de este horario hoy? (evita reenviar el mismo aviso cada minuto)
-            $alreadyAlerted = MedicationAlert::where('prescription_id', $prescription->id)
-                ->where('alert_type', 'pending_push')
-                ->whereDate('scheduled_time', $todayKey)
-                ->exists();
-            if ($alreadyAlerted) {
-                continue;
+            if ($minutesUntilDue > self::REMINDER_BEFORE_MINUTES) {
+                continue; // todavía falta demasiado tiempo, nada que avisar aún
+            } elseif ($minutesUntilDue > 0) {
+                $alertType = 'reminder_before';
+            } elseif ($minutesUntilDue > -self::REMINDER_DELAYED_MINUTES) {
+                $alertType = 'due_now';
+            } else {
+                $alertType = 'reminder_delayed';
+            }
+
+            // Dedup por horario exacto (schedule_id), no solo por prescripción, para
+            // que dos horarios distintos de la misma prescripción (ej. 08:00 y 20:00)
+            // no se bloqueen entre sí. El insert ocurre ANTES de enviar el push (en vez
+            // de solo verificar con un exists()) porque el comando corre cada minuto vía
+            // schedule:work y una ejecución manual podría solaparse: el índice único de
+            // la tabla hace que solo un proceso logre crear la fila, y ese es el único
+            // que llega a mandar el push — el otro recibe un QueryException y lo ignora.
+            try {
+                MedicationAlert::create([
+                    'prescription_id' => $prescription->id,
+                    'schedule_id' => $schedule->id,
+                    'resident_id' => $prescription->resident_id,
+                    'scheduled_time' => $scheduledDateTime,
+                    'alert_type' => $alertType,
+                ]);
+            } catch (QueryException $e) {
+                continue; // otro proceso ya registró (y envió) este mismo aviso
             }
 
             $resident = $residents->get($prescription->resident_id);
@@ -113,24 +128,33 @@ class CheckPendingMedications extends Command
 
             $residentName = trim("{$resident->first_name} {$resident->last_name}");
             $medicationLabel = trim(($medication->name ?? 'Medicamento') . ' ' . ($prescription->dosage ?? ''));
+            $scheduledLabel = $scheduledDateTime->format('H:i');
+
+            [$title, $body] = match ($alertType) {
+                'reminder_before' => [
+                    'Medicamento en 15 minutos',
+                    "{$residentName} (Hab. {$resident->room_number}) tiene {$medicationLabel} programado a las {$scheduledLabel}.",
+                ],
+                'due_now' => [
+                    'Medicamento pendiente',
+                    "{$residentName} (Hab. {$resident->room_number}) necesita {$medicationLabel} ahora.",
+                ],
+                default => [
+                    'Medicamento atrasado',
+                    "{$residentName} (Hab. {$resident->room_number}) sigue sin recibir {$medicationLabel} (programado a las {$scheduledLabel}).",
+                ],
+            };
 
             $firebase->sendToTokens(
                 $tokens,
-                'Medicamento pendiente',
-                "{$residentName} (Hab. {$resident->room_number}) necesita {$medicationLabel}",
+                $title,
+                $body,
                 [
-                    'type' => 'medication_pending',
+                    'type' => 'medication_' . $alertType,
                     'resident_id' => (string) $resident->id,
                     'schedule_id' => (string) $schedule->id,
                 ]
             );
-
-            MedicationAlert::create([
-                'prescription_id' => $prescription->id,
-                'resident_id' => $resident->id,
-                'scheduled_time' => $scheduledDateTime,
-                'alert_type' => 'pending_push',
-            ]);
 
             $sentCount++;
         }

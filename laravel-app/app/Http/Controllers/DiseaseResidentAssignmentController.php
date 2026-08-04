@@ -7,9 +7,15 @@ use App\Models\DiseaseResidentAssignment;
 
 class DiseaseResidentAssignmentController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $items = DiseaseResidentAssignment::all();
+        $query = DiseaseResidentAssignment::query();
+
+        if ($request->has('resident_id')) {
+            $query->where('resident_id', $request->query('resident_id'));
+        }
+
+        $items = $query->get();
         return response()->json($items, 200);
     }
 
@@ -21,9 +27,27 @@ class DiseaseResidentAssignmentController extends Controller
 
     public function store(Request $request)
     {
-        $item = DiseaseResidentAssignment::create($request->all());
+        $validated = $request->validate([
+            'resident_id' => 'required|exists:residents,id',
+            'disease_id' => 'required|exists:diseases,id',
+            'diagnosed_at' => 'nullable|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        $alreadyAssigned = DiseaseResidentAssignment::where('resident_id', $validated['resident_id'])
+            ->where('disease_id', $validated['disease_id'])
+            ->exists();
+
+        if ($alreadyAssigned) {
+            return response()->json([
+                'message' => 'Este residente ya tiene esta condición asignada.'
+            ], 422);
+        }
+
+        $item = DiseaseResidentAssignment::create($validated);
+
         return response()->json([
-            'message' => 'Creado exitosamente',
+            'message' => 'Condición asignada exitosamente',
             'data' => $item
         ], 201);
     }
@@ -31,7 +55,14 @@ class DiseaseResidentAssignmentController extends Controller
     public function update(Request $request, $id)
     {
         $item = DiseaseResidentAssignment::findOrFail($id);
-        $item->update($request->all());
+
+        $validated = $request->validate([
+            'diagnosed_at' => 'nullable|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        $item->update($validated);
+
         return response()->json([
             'message' => 'Actualizado exitosamente',
             'data' => $item
@@ -43,7 +74,7 @@ class DiseaseResidentAssignmentController extends Controller
         $item = DiseaseResidentAssignment::findOrFail($id);
         $item->delete(); // Hard delete porque la tabla no tiene softDeletes
         return response()->json([
-            'message' => 'Eliminado exitosamente'
+            'message' => 'Condición retirada exitosamente'
         ], 200);
     }
 }

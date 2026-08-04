@@ -9,14 +9,15 @@ class ResidentController extends Controller
 {
     public function index()
     {
-        // Trae todos los residentes activos (SoftDeletes oculta automáticamente los "eliminados")
-        $residents = Resident::all();
+        // Incluye también los residentes desactivados (soft-deleted) para que el
+        // frontend pueda mostrarlos con su estado y permitir reactivarlos.
+        $residents = Resident::withTrashed()->orderBy('first_name')->get();
         return response()->json($residents, 200);
     }
 
     public function show($id)
     {
-        $resident = Resident::findOrFail($id);
+        $resident = Resident::withTrashed()->findOrFail($id);
         return response()->json($resident, 200);
     }
 
@@ -25,11 +26,22 @@ class ResidentController extends Controller
         $validatedData = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'dpi' => 'nullable|string|max:255',
+            'dpi' => 'nullable|string|max:255|unique:residents,dpi',
             'birth_date' => 'nullable|date',
+            'gender' => 'nullable|string|max:20',
+            'room_number' => 'nullable|string|max:50',
+            'admission_date' => 'nullable|date',
+            'blood_type' => 'nullable|string|max:10',
+            'weight' => 'nullable|numeric',
+            'height' => 'nullable|numeric',
+            'allergies' => 'nullable|string',
+            'emergency_contact_name' => 'nullable|string|max:255',
+            'emergency_contact_phone' => 'nullable|string|max:50',
+            'emergency_contact_relation' => 'nullable|string|max:100',
+            'notes' => 'nullable|string',
         ]);
 
-        $resident = Resident::create($request->all());
+        $resident = Resident::create($validatedData);
 
         return response()->json([
             'message' => 'Residente creado exitosamente',
@@ -39,8 +51,27 @@ class ResidentController extends Controller
 
     public function update(Request $request, $id)
     {
-        $resident = Resident::findOrFail($id);
-        $resident->update($request->all());
+        $resident = Resident::withTrashed()->findOrFail($id);
+
+        $validatedData = $request->validate([
+            'first_name' => 'sometimes|string|max:255',
+            'last_name' => 'sometimes|string|max:255',
+            'dpi' => 'nullable|string|max:255|unique:residents,dpi,' . $resident->id,
+            'birth_date' => 'nullable|date',
+            'gender' => 'nullable|string|max:20',
+            'room_number' => 'nullable|string|max:50',
+            'admission_date' => 'nullable|date',
+            'blood_type' => 'nullable|string|max:10',
+            'weight' => 'nullable|numeric',
+            'height' => 'nullable|numeric',
+            'allergies' => 'nullable|string',
+            'emergency_contact_name' => 'nullable|string|max:255',
+            'emergency_contact_phone' => 'nullable|string|max:50',
+            'emergency_contact_relation' => 'nullable|string|max:100',
+            'notes' => 'nullable|string',
+        ]);
+
+        $resident->update($validatedData);
 
         return response()->json([
             'message' => 'Residente actualizado exitosamente',
@@ -51,13 +82,25 @@ class ResidentController extends Controller
     public function destroy($id)
     {
         $resident = Resident::findOrFail($id);
-        
-        // Gracias a SoftDeletes, delete() no lo elimina de la base de datos, 
-        // solo le asigna la fecha actual a la columna deleted_at
+
+        // Gracias a SoftDeletes, delete() no lo elimina de la base de datos,
+        // solo le asigna la fecha actual a la columna deleted_at (= "desactivar").
         $resident->delete();
 
         return response()->json([
-            'message' => 'Residente eliminado (cambio de estado a inactivo) exitosamente'
+            'message' => 'Residente desactivado exitosamente'
+        ], 200);
+    }
+
+    // POST /api/residents/{id}/restore → Reactiva un residente desactivado
+    public function restore($id)
+    {
+        $resident = Resident::withTrashed()->findOrFail($id);
+        $resident->restore();
+
+        return response()->json([
+            'message' => 'Residente activado exitosamente',
+            'resident' => $resident,
         ], 200);
     }
 }

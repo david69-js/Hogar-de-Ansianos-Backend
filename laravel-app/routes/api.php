@@ -6,7 +6,6 @@ use App\Http\Controllers\AuthController;
 
 // Rutas Públicas (No requieren Token)
 Route::post('/login', [AuthController::class, 'login']);
- Route::get('users', [App\Http\Controllers\UserController::class, 'index']);
 // routes/api.php
 Route::post('/seed', function () {
     try {
@@ -35,21 +34,57 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/me', [AuthController::class, 'updateProfile']);
     
     // Rutas Reales CRUD completas (Protegidas)
-   // Route::apiResource('users', App\Http\Controllers\UserController::class);
-    Route::apiResource('residents', App\Http\Controllers\ResidentController::class);
+    // Personal/Usuarios es 100% administrativo: todos los verbos requieren manage_users.
+    Route::middleware('permission:manage_users')->group(function () {
+        Route::apiResource('users', App\Http\Controllers\UserController::class);
+    });
+
+    // Residentes: ver está abierto a cualquier rol autenticado; crear/editar solo
+    // Admin y Doctor; desactivar/eliminar/restaurar solo Admin.
+    Route::apiResource('residents', App\Http\Controllers\ResidentController::class)->only(['index', 'show']);
+    Route::middleware('permission:create_residents|edit_residents')->group(function () {
+        Route::apiResource('residents', App\Http\Controllers\ResidentController::class)->only(['store', 'update']);
+    });
+    Route::middleware('permission:delete_residents')->group(function () {
+        Route::apiResource('residents', App\Http\Controllers\ResidentController::class)->only(['destroy']);
+        Route::post('residents/{id}/restore', [App\Http\Controllers\ResidentController::class, 'restore']);
+    });
+
     Route::apiResource('jobs', App\Http\Controllers\JobController::class);
     Route::apiResource('audit-logs', App\Http\Controllers\AuditLogController::class);
-    Route::apiResource('diseases', App\Http\Controllers\DiseaseController::class);
+
+    // Catálogos de condiciones y medicamentos, y prescripciones: ver está abierto,
+    // gestionarlos (crear/editar/eliminar) requiere manage_medications (Admin/Doctor).
+    Route::apiResource('diseases', App\Http\Controllers\DiseaseController::class)->only(['index', 'show']);
+    Route::apiResource('medications', App\Http\Controllers\MedicationController::class)->only(['index', 'show']);
+    Route::apiResource('prescriptions', App\Http\Controllers\PrescriptionController::class)->only(['index', 'show']);
+    Route::middleware('permission:manage_medications')->group(function () {
+        Route::apiResource('diseases', App\Http\Controllers\DiseaseController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('medications', App\Http\Controllers\MedicationController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('prescriptions', App\Http\Controllers\PrescriptionController::class)->only(['store', 'update', 'destroy']);
+    });
+
     Route::apiResource('notifications', App\Http\Controllers\NotificationController::class);
     Route::apiResource('resident-images', App\Http\Controllers\ResidentImageController::class);
     Route::apiResource('resident-reports', App\Http\Controllers\ResidentReportController::class);
     Route::apiResource('resident-vitals', App\Http\Controllers\ResidentVitalController::class);
     Route::apiResource('disease-resident-assignments', App\Http\Controllers\DiseaseResidentAssignmentController::class);
-    Route::apiResource('medications', App\Http\Controllers\MedicationController::class);
-    Route::apiResource('prescriptions', App\Http\Controllers\PrescriptionController::class);
     Route::apiResource('medication-alerts', App\Http\Controllers\MedicationAlertController::class);
     Route::apiResource('medication-schedules', App\Http\Controllers\MedicationScheduleController::class);
-    Route::apiResource('medication-logs', App\Http\Controllers\MedicationLogController::class);
+
+    // Marcar un medicamento como administrado/no administrado es la tarea clínica
+    // central de Enfermera/Doctor/Admin; Staff no tiene este permiso.
+    Route::apiResource('medication-logs', App\Http\Controllers\MedicationLogController::class)->only(['index', 'show', 'update', 'destroy']);
+    Route::middleware('permission:administer_medications')->group(function () {
+        Route::apiResource('medication-logs', App\Http\Controllers\MedicationLogController::class)->only(['store']);
+    });
+
+    // Kardex de medicamentos: cualquier rol autenticado puede consultar el stock y su
+    // historial de movimientos; solo Admin puede registrar entradas/salidas/ajustes.
+    Route::apiResource('medication-stock-movements', App\Http\Controllers\MedicationStockMovementController::class)->only(['index', 'show']);
+    Route::middleware('permission:manage_inventory')->group(function () {
+        Route::apiResource('medication-stock-movements', App\Http\Controllers\MedicationStockMovementController::class)->only(['store']);
+    });
 
     // Push notifications (Firebase Cloud Messaging)
     Route::post('/device-tokens', [App\Http\Controllers\DeviceTokenController::class, 'store']);

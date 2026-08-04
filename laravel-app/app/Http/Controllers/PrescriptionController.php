@@ -7,9 +7,17 @@ use App\Models\Prescription;
 
 class PrescriptionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $items = Prescription::all();
+        $query = Prescription::query();
+
+        if ($request->has('resident_id')) {
+            $query->where('resident_id', $request->query('resident_id'));
+        }
+
+        // Sin filtrar por is_active: el frontend necesita ver también las
+        // prescripciones descontinuadas (historial médico del residente).
+        $items = $query->latest()->get();
         return response()->json($items, 200);
     }
 
@@ -21,9 +29,24 @@ class PrescriptionController extends Controller
 
     public function store(Request $request)
     {
-        $item = Prescription::create($request->all());
+        $validated = $request->validate([
+            'resident_id' => 'required|exists:residents,id',
+            'medication_id' => 'required|exists:medications,id',
+            'dosage' => 'nullable|string|max:100',
+            'frequency' => 'nullable|string|max:100',
+            'administration_route' => 'nullable|string|max:100',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'instructions' => 'nullable|string',
+        ]);
+
+        $validated['created_by'] = $request->user()->id;
+        $validated['is_active'] = true;
+
+        $item = Prescription::create($validated);
+
         return response()->json([
-            'message' => 'Creado exitosamente',
+            'message' => 'Prescripción creada exitosamente',
             'data' => $item
         ], 201);
     }
@@ -31,19 +54,35 @@ class PrescriptionController extends Controller
     public function update(Request $request, $id)
     {
         $item = Prescription::findOrFail($id);
-        $item->update($request->all());
+
+        $validated = $request->validate([
+            'dosage' => 'nullable|string|max:100',
+            'frequency' => 'nullable|string|max:100',
+            'administration_route' => 'nullable|string|max:100',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'instructions' => 'nullable|string',
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        $item->update($validated);
+
         return response()->json([
-            'message' => 'Actualizado exitosamente',
+            'message' => 'Prescripción actualizada exitosamente',
             'data' => $item
         ], 200);
     }
 
+    // DELETE /api/prescriptions/{id} → Descontinuar (is_active = false), NO se borra.
+    // Igual que Personal: se conserva para historial y se puede reactivar con
+    // PUT {is_active: true}.
     public function destroy($id)
     {
         $item = Prescription::findOrFail($id);
-        $item->delete();
+        $item->update(['is_active' => false]);
+
         return response()->json([
-            'message' => 'Eliminado (estado inactivo) exitosamente'
+            'message' => 'Prescripción descontinuada exitosamente'
         ], 200);
     }
 }
