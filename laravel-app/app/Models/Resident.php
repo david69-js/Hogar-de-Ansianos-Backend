@@ -32,4 +32,9 @@ class Resident extends Model
     {
         return $this->hasMany(ResidentImage::class);
     }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(ResidentDocument::class);
+    }
 }

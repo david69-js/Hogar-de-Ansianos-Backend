@@ -66,6 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('notifications', App\Http\Controllers\NotificationController::class);
     Route::apiResource('resident-images', App\Http\Controllers\ResidentImageController::class);
+    Route::apiResource('resident-documents', App\Http\Controllers\ResidentDocumentController::class);
     Route::apiResource('resident-reports', App\Http\Controllers\ResidentReportController::class);
     Route::apiResource('resident-vitals', App\Http\Controllers\ResidentVitalController::class);
     Route::apiResource('disease-resident-assignments', App\Http\Controllers\DiseaseResidentAssignmentController::class);
