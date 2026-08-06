@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Resident extends Model
@@ -26,4 +27,9 @@ class Resident extends Model
         'emergency_contact_relation',
         'notes',
     ];
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(ResidentImage::class);
+    }
 }

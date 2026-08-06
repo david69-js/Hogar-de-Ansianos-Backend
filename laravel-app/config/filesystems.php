@@ -60,6 +60,20 @@ return [
             'report' => false,
         ],
 
+        // Cloudflare R2 (compatible con la API de S3) para fotos de residentes y
+        // fotos de perfil de personal. Mismo patrón que en CityFix-Backend.
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION', 'auto'),
+            'bucket' => env('AWS_BUCKET', 'sorherminia'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'url' => env('AWS_URL'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', true) === true || env('AWS_USE_PATH_STYLE_ENDPOINT', true) === 'true',
+            'throw' => true,
+        ],
+
     ],
 
     /*

@@ -4,11 +4,17 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 use App\Models\User;
 
 class UserController extends Controller
 {
+    private function imageDisk(): string
+    {
+        return config('filesystems.default') === 'r2' ? 'r2' : 'public';
+    }
+
     // GET /api/users
     public function index()
     {
@@ -37,11 +43,15 @@ class UserController extends Controller
             'position'   => 'nullable|string|max:255',
             'hire_date'  => 'nullable|date',
             'address'    => 'nullable|string|max:500',
-            'profile_image' => 'nullable|string|max:255',
+            'profile_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'status'     => 'nullable|string|in:active,inactive',
             'emergency_contact' => 'nullable|string|max:255',
             'emergency_phone'   => 'nullable|string|max:20',
         ]);
+
+        if ($request->hasFile('profile_image')) {
+            $validated['profile_image'] = $request->file('profile_image')->store('profile-images', $this->imageDisk());
+        }
 
         $user = User::create([
             'first_name'    => $validated['first_name'],
@@ -89,7 +99,7 @@ class UserController extends Controller
             'position'   => 'nullable|string|max:255',
             'hire_date'  => 'nullable|date',
             'address'    => 'nullable|string|max:500',
-            'profile_image' => 'nullable|string|max:255',
+            'profile_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'status'     => 'sometimes|in:active,inactive',
             'emergency_contact' => 'nullable|string|max:255',
             'emergency_phone'   => 'nullable|string|max:20',
@@ -98,6 +108,13 @@ class UserController extends Controller
         // Hash de password si viene en el request
         if (isset($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
+        }
+
+        if ($request->hasFile('profile_image')) {
+            if ($user->profile_image) {
+                Storage::disk($this->imageDisk())->delete($user->profile_image);
+            }
+            $validated['profile_image'] = $request->file('profile_image')->store('profile-images', $this->imageDisk());
         }
 
         // Cambiar rol en Spatie si viene

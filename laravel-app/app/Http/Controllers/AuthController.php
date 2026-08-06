@@ -5,10 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    private function imageDisk(): string
+    {
+        return config('filesystems.default') === 'r2' ? 'r2' : 'public';
+    }
+
     public function register(Request $request)
     {
         $validatedData = $request->validate([
@@ -120,10 +126,18 @@ class AuthController extends Controller
             'address' => 'sometimes|string',
             'emergency_contact' => 'sometimes|string',
             'emergency_phone' => 'sometimes|string',
+            'profile_image' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
         if (isset($validatedData['password'])) {
             $validatedData['password'] = Hash::make($validatedData['password']);
+        }
+
+        if ($request->hasFile('profile_image')) {
+            if ($user->profile_image) {
+                Storage::disk($this->imageDisk())->delete($user->profile_image);
+            }
+            $validatedData['profile_image'] = $request->file('profile_image')->store('profile-images', $this->imageDisk());
         }
 
         $user->update($validatedData);
