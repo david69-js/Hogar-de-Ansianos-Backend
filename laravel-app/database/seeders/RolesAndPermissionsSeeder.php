@@ -5,8 +5,6 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
 
 class RolesAndPermissionsSeeder extends Seeder
@@ -56,19 +54,5 @@ class RolesAndPermissionsSeeder extends Seeder
         $roleStaff = Role::firstOrCreate(['name' => 'Staff', 'guard_name' => 'web']);
         $roleStaff->givePermissionTo(['view_residents']);
 
-        // 3. Crear Usuario Administrador Base
-        $adminUser = User::firstOrCreate(
-            ['email' => 'admin@admin.com'],
-            [
-                'first_name' => 'Super',
-                'last_name' => 'Administrador',
-                'password' => Hash::make('password123'),
-                'status' => 'active',
-                'dpi' => '0000000000000',
-                'phone' => '00000000',
-                'role' => 'Admin'
-            ]
-        );
-        $adminUser->assignRole('Admin');
     }
 }

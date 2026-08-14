@@ -119,9 +119,15 @@ return new class extends Migration
             });
         }
 
-        app('cache')
-            ->store(config('permission.cache.store') != 'default' ? config('permission.cache.store') : null)
-            ->forget(config('permission.cache.key'));
+        // The cache table (hr_19) may not exist yet during migrate:refresh,
+        // so we catch the exception and fall back to the file store.
+        try {
+            app('cache')
+                ->store(config('permission.cache.store') != 'default' ? config('permission.cache.store') : null)
+                ->forget(config('permission.cache.key'));
+        } catch (\Throwable $e) {
+            app('cache')->store('file')->forget(config('permission.cache.key'));
+        }
     }
 
     public function down(): void
