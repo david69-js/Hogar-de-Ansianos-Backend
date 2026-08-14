@@ -20,8 +20,17 @@ return new class extends Migration {
 
     public function down(): void
     {
+        // MySQL error 1553: cannot drop an index used by a FK constraint, even with
+        // FOREIGN_KEY_CHECKS=0. When hr_21 added the unique index, MySQL dropped the
+        // plain index on schedule_id (redundant). Now the unique index is the only one
+        // supporting the FK. We must: drop FK → drop unique → re-add FK (so hr_20
+        // down() can find and remove it normally).
         Schema::table('medication_alerts', function (Blueprint $table) {
+            $table->dropForeign(['schedule_id']);
             $table->dropUnique('medication_alerts_schedule_type_time_unique');
+        });
+        Schema::table('medication_alerts', function (Blueprint $table) {
+            $table->foreign('schedule_id')->references('id')->on('medication_schedules')->onDelete('cascade');
         });
     }
 };

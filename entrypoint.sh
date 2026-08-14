@@ -65,6 +65,14 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
   done
 fi
 
+# Los comandos artisan de arriba (cache, config, route, view, migrate/seed)
+# corren como root y recrean subdirectorios de storage (ej.
+# storage/framework/cache/data/xx/yy) como root. Re-asignamos la propiedad al
+# final, justo antes de arrancar Apache, para que PHP (www-data) pueda escribir
+# en storage y bootstrap/cache en runtime.
+chown -R www-data:www-data /var/www/sorherminia/storage /var/www/sorherminia/bootstrap/cache
+chmod -R ug+rwX /var/www/sorherminia/storage /var/www/sorherminia/bootstrap/cache
+
 # Start Apache in the foreground
 echo "Starting Apache..."
 exec apache2-foreground

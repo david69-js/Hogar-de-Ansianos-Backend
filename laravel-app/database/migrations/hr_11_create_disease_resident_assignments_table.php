@@ -18,6 +18,8 @@ return new class extends Migration {
 
     public function down(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('disease_resident_assignments');
+        Schema::enableForeignKeyConstraints();
     }
 };
