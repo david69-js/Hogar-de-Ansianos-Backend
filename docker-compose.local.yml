@@ -21,6 +21,14 @@ services:
       - DB_DATABASE=${DB_DATABASE:-sorherminia}
       - DB_USERNAME=${DB_USERNAME:-sorherminia_user}
       - DB_PASSWORD=${DB_PASSWORD:-root}
+      # En Linux, con bind mount, entrypoint.sh alinea www-data a este UID/GID para
+      # que los archivos que el contenedor escribe en storage/bootstrap/cache queden
+      # editables/borrables desde el host. En macOS (Docker Desktop) no hace falta,
+      # pero no molesta dejarlo. Para tu usuario real: `export HOST_UID=$(id -u)
+      # HOST_GID=$(id -g)` antes de `docker compose up`, o defínelos en el .env de
+      # la raíz del repo (junto a DB_HOST, DB_PORT, etc).
+      - HOST_UID=${HOST_UID:-1000}
+      - HOST_GID=${HOST_GID:-1000}
     networks:
       - laravel
     depends_on:
@@ -34,9 +42,11 @@ services:
     # Se salta entrypoint.sh (que arranca Apache) y corre el scheduler de Laravel
     # directamente: sin este servicio, app:check-pending-medications y
     # app:check-medication-stock nunca se ejecutan solos en el entorno local.
-    # user: www-data porque entrypoint.sh (que hace chown a www-data) no corre aquí;
-    # sin esto, schedule:work escribe logs/cache como root en el volumen compartido.
-    user: www-data
+    # Corre como el mismo UID/GID que el host (no por nombre "www-data"): este
+    # contenedor no ejecuta entrypoint.sh, así que nunca ve el usermod/groupmod que
+    # alinea www-data en el contenedor "app"; sin esto, schedule:work escribiría
+    # logs/cache en el volumen compartido con un UID que el host no puede tocar.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     entrypoint: ["php", "artisan", "schedule:work"]
     volumes:
       - ./laravel-app:/var/www/sorherminia

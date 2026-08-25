@@ -8,15 +8,20 @@ This project is configured to run fully in Docker for both local development and
 
 ## Quick Start (Local Development)
 
+0. **En Linux (no hace falta en macOS)**: exporta el UID/GID de tu usuario antes de levantar, o agrégalos al `.env` de la raíz del repo (junto a `DB_HOST`, `DB_PORT`, etc):
+   ```bash
+   export HOST_UID=$(id -u) HOST_GID=$(id -g)
+   ```
+   Sin esto, todo lo que el contenedor escribe en `laravel-app/storage` y `laravel-app/bootstrap/cache` queda con dueño `www-data` (uid 33) en el disco real del host, y tu usuario se queda sin permiso para editar/guardar/borrar esos archivos. En macOS con Docker Desktop no aplica porque el file sharing remapea el dueño de forma transparente.
+
 1. **Start the containers**
    ```bash
-   docker compose -f docker-compose.yml up -d
+   docker compose -f docker-compose.local.yml up -d
    ```
    *The first time you run this, it will automatically:*
-   - Unpack and install a new Laravel application if one doesn't exist
-   - Install Composer dependencies
-   - Copy `.env.example` to `.env` and set up database variables
-   - Generate your `APP_KEY`
+   - Install Composer dependencies if `vendor/` is missing (the bind mount hides the `vendor/` baked into the image, so a fresh clone needs this)
+   - Copy `.env.example` to `.env` if `.env` doesn't exist
+   - Generate and persist your `APP_KEY` into `.env` if it's missing or invalid
    - Wait for the database to be ready and run migrations
 
 2. **Access the application**
@@ -25,7 +30,7 @@ This project is configured to run fully in Docker for both local development and
 
 3. **Stop the containers**
    ```bash
-   docker compose -f docker-compose.yml down
+   docker compose -f docker-compose.local.yml down
    ```
 
 ---
