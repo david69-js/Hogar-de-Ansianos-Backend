@@ -39,8 +39,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('users', App\Http\Controllers\UserController::class);
     });
 
-    // Residentes: ver está abierto a cualquier rol autenticado; crear/editar solo
-    // Admin y Doctor; desactivar/eliminar/restaurar solo Admin.
+    // Residentes: ver está abierto a cualquier rol autenticado; crear/editar,
+    // desactivar/eliminar/restaurar solo Admin (la administradora).
     Route::apiResource('residents', App\Http\Controllers\ResidentController::class)->only(['index', 'show']);
     Route::middleware('permission:create_residents|edit_residents')->group(function () {
         Route::apiResource('residents', App\Http\Controllers\ResidentController::class)->only(['store', 'update']);
@@ -54,7 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('audit-logs', App\Http\Controllers\AuditLogController::class);
 
     // Catálogos de condiciones y medicamentos, y prescripciones: ver está abierto,
-    // gestionarlos (crear/editar/eliminar) requiere manage_medications (Admin/Doctor).
+    // gestionarlos (crear/editar/eliminar) requiere manage_medications (Admin/Enfermera).
     Route::apiResource('diseases', App\Http\Controllers\DiseaseController::class)->only(['index', 'show']);
     Route::apiResource('medications', App\Http\Controllers\MedicationController::class)->only(['index', 'show']);
     Route::apiResource('prescriptions', App\Http\Controllers\PrescriptionController::class)->only(['index', 'show']);
@@ -74,7 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('medication-schedules', App\Http\Controllers\MedicationScheduleController::class);
 
     // Marcar un medicamento como administrado/no administrado es la tarea clínica
-    // central de Enfermera/Doctor/Admin; Staff no tiene este permiso.
+    // central de Enfermera/Admin; Staff no tiene este permiso.
     Route::apiResource('medication-logs', App\Http\Controllers\MedicationLogController::class)->only(['index', 'show', 'update', 'destroy']);
     Route::middleware('permission:administer_medications')->group(function () {
         Route::apiResource('medication-logs', App\Http\Controllers\MedicationLogController::class)->only(['store']);
