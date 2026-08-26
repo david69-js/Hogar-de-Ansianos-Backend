@@ -126,7 +126,12 @@ class CheckPendingMedications extends Command
             }
             $medication = $medications->get($prescription->medication_id);
 
-            $residentName = trim("{$resident->first_name} {$resident->last_name}");
+            $residentName = trim(implode(' ', array_filter([
+                $resident->first_name,
+                $resident->middle_name,
+                $resident->last_name,
+                $resident->second_last_name,
+            ])));
             $medicationLabel = trim(($medication->name ?? 'Medicamento') . ' ' . ($prescription->dosage ?? ''));
             $scheduledLabel = $scheduledDateTime->format('H:i');
 

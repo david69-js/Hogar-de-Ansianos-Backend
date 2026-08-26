@@ -25,9 +25,11 @@ class ResidentController extends Controller
     {
         $validatedData = $request->validate([
             'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
-            'dpi' => 'nullable|string|max:255|unique:residents,dpi',
-            'birth_date' => 'nullable|date',
+            'second_last_name' => 'nullable|string|max:255',
+            'dpi' => 'required|string|max:255|unique:residents,dpi',
+            'birth_date' => 'required|date',
             'gender' => 'nullable|string|max:20',
             'room_number' => 'nullable|string|max:50',
             'admission_date' => 'nullable|date',
@@ -55,7 +57,9 @@ class ResidentController extends Controller
 
         $validatedData = $request->validate([
             'first_name' => 'sometimes|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
             'last_name' => 'sometimes|string|max:255',
+            'second_last_name' => 'nullable|string|max:255',
             'dpi' => 'nullable|string|max:255|unique:residents,dpi,' . $resident->id,
             'birth_date' => 'nullable|date',
             'gender' => 'nullable|string|max:20',

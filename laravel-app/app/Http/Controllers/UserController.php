@@ -34,7 +34,9 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
             'last_name'  => 'required|string|max:255',
+            'second_last_name' => 'nullable|string|max:255',
             'email'      => 'required|email|unique:users,email',
             'password'   => ['required', 'string', Password::min(8)],
             'dpi'        => 'required|string|unique:users,dpi',
@@ -55,7 +57,9 @@ class UserController extends Controller
 
         $user = User::create([
             'first_name'    => $validated['first_name'],
+            'middle_name'   => $validated['middle_name'] ?? null,
             'last_name'     => $validated['last_name'],
+            'second_last_name' => $validated['second_last_name'] ?? null,
             'email'         => $validated['email'],
             'password'      => Hash::make($validated['password']),
             'dpi'           => $validated['dpi'],
@@ -90,7 +94,9 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'first_name' => 'sometimes|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
             'last_name'  => 'sometimes|string|max:255',
+            'second_last_name' => 'nullable|string|max:255',
             'email'      => 'sometimes|email|unique:users,email,' . $user->id,
             'password'   => ['sometimes', 'string', Password::min(8)],
             'dpi'        => 'sometimes|string|unique:users,dpi,' . $user->id,
