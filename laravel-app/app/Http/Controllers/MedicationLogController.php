@@ -37,6 +37,10 @@ class MedicationLogController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
+        // Si el cliente no manda quién lo hizo, se asume el usuario autenticado — así el
+        // responsable de cada dosis (para los reportes) siempre queda identificado.
+        $data['administered_by'] = $data['administered_by'] ?? $request->user()?->id;
+
         // El retraso se calcula en el servidor (no se confía en lo que mande el cliente)
         // para que quede un registro confiable de qué tan tarde se administró.
         if ($data['status'] === 'administered' && !empty($data['administered_time'])) {

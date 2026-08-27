@@ -87,6 +87,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('medication-stock-movements', App\Http\Controllers\MedicationStockMovementController::class)->only(['store']);
     });
 
+    // Reportes en PDF: por residente (medicación/omisiones) y por enfermera (actividad).
+    // Admin y Enfermera tienen view_reports; Staff no.
+    Route::middleware('permission:view_reports')->prefix('reports')->group(function () {
+        Route::get('residents/{id}/medications', [App\Http\Controllers\ReportController::class, 'residentMedicationPdf']);
+        Route::get('nurses/{id}/activity', [App\Http\Controllers\ReportController::class, 'nursePdf']);
+    });
+
     // Push notifications (Firebase Cloud Messaging)
     Route::post('/device-tokens', [App\Http\Controllers\DeviceTokenController::class, 'store']);
     Route::delete('/device-tokens', [App\Http\Controllers\DeviceTokenController::class, 'destroy']);
