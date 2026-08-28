@@ -26,6 +26,7 @@ class MedicationController extends Controller
             'name' => 'required|string|max:255|unique:medications,name',
             'description' => 'nullable|string',
             'dosage_form' => 'nullable|string|max:100',
+            'concentration' => 'nullable|string|max:100',
             // stock_quantity y expiration_date NO se aceptan aquí: solo cambian a través de
             // un movimiento en /medication-stock-movements, para que quede su rastro en el
             // kardex. minimum_stock sí es config editable junto con el resto del catálogo.
@@ -48,6 +49,7 @@ class MedicationController extends Controller
             'name' => 'sometimes|string|max:255|unique:medications,name,' . $item->id,
             'description' => 'nullable|string',
             'dosage_form' => 'nullable|string|max:100',
+            'concentration' => 'nullable|string|max:100',
             'minimum_stock' => 'nullable|integer|min:0',
         ]);
 

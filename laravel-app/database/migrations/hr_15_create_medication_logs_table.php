@@ -22,6 +22,10 @@ return new class extends Migration {
             $table->foreignId('claimed_by')->nullable()->constrained('users')->onDelete('set null');
             $table->dateTime('claimed_at')->nullable();
             $table->timestamps();
+
+            // Evita que dos pantallas (Dashboard y Calendario) o dos dispositivos
+            // registren dos veces la misma dosis por una condición de carrera.
+            $table->unique(['schedule_id', 'scheduled_time'], 'medication_logs_schedule_scheduled_time_unique');
         });
     }
 

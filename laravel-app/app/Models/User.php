@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Observers\AuditableObserver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -22,6 +23,11 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $guarded = ['id'];
+
+    protected static function booted(): void
+    {
+        static::observe(AuditableObserver::class);
+    }
 
     /**
      * The attributes that should be hidden for serialization.

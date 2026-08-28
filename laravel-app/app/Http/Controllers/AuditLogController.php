@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\AuditLog;
 
+// Solo lectura a propósito: las filas las genera únicamente AuditableObserver.
+// Un audit log que se pueda escribir/borrar por API deja de servir como prueba
+// de qué pasó — por eso no hay store/update/destroy aquí ni en las rutas.
 class AuditLogController extends Controller
 {
     public function index()
     {
-        $items = AuditLog::all();
+        $items = AuditLog::latest()->paginate(50);
         return response()->json($items, 200);
     }
 
@@ -17,33 +19,5 @@ class AuditLogController extends Controller
     {
         $item = AuditLog::findOrFail($id);
         return response()->json($item, 200);
-    }
-
-    public function store(Request $request)
-    {
-        $item = AuditLog::create($request->all());
-        return response()->json([
-            'message' => 'Creado exitosamente',
-            'data' => $item
-        ], 201);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $item = AuditLog::findOrFail($id);
-        $item->update($request->all());
-        return response()->json([
-            'message' => 'Actualizado exitosamente',
-            'data' => $item
-        ], 200);
-    }
-
-    public function destroy($id)
-    {
-        $item = AuditLog::findOrFail($id);
-        $item->delete(); // Hard delete porque la tabla no tiene softDeletes
-        return response()->json([
-            'message' => 'Eliminado exitosamente'
-        ], 200);
     }
 }

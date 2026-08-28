@@ -51,7 +51,12 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::apiResource('jobs', App\Http\Controllers\JobController::class);
-    Route::apiResource('audit-logs', App\Http\Controllers\AuditLogController::class);
+
+    // Auditoría: solo lectura y solo Admin. Las filas las genera AuditableObserver,
+    // nunca un cliente HTTP — por eso no hay store/update/destroy.
+    Route::middleware('permission:manage_users')->group(function () {
+        Route::apiResource('audit-logs', App\Http\Controllers\AuditLogController::class)->only(['index', 'show']);
+    });
 
     // Catálogos de condiciones y medicamentos, y prescripciones: ver está abierto,
     // gestionarlos (crear/editar/eliminar) requiere manage_medications (Admin/Enfermera).

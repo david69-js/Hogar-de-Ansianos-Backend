@@ -12,6 +12,12 @@ return new class extends Migration {
             $table->string('name')->unique()->nullable();
             $table->text('description')->nullable();
             $table->string('dosage_form')->nullable();
+            $table->unsignedInteger('stock_quantity')->default(0);
+            // Umbral para la alerta de "stock bajo" (null = sin alerta configurada).
+            $table->unsignedInteger('minimum_stock')->nullable();
+            // Inventario simple (no por lote): caducidad del lote vigente, se actualiza
+            // cada vez que se registra una entrada de stock nueva.
+            $table->date('expiration_date')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

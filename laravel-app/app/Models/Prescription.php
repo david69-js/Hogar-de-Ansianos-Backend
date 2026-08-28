@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Observers\AuditableObserver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,6 +11,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Prescription extends Model
 {
     use SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::observe(AuditableObserver::class);
+    }
 
     protected $guarded = ['id'];
 

@@ -8,6 +8,7 @@ use App\Models\MedicationLog;
 use App\Models\MedicationSchedule;
 use App\Models\MedicationStockMovement;
 use App\Models\Prescription;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -48,18 +49,31 @@ class MedicationLogController extends Controller
                 ->diffInMinutes(Carbon::parse($data['administered_time']), false));
         }
 
-        return DB::transaction(function () use ($data) {
-            $item = MedicationLog::create($data);
+        try {
+            return DB::transaction(function () use ($data) {
+                $item = MedicationLog::create($data);
 
-            if ($data['status'] === 'administered') {
-                $this->decrementStockForSchedule((int) $data['schedule_id'], $item);
+                if ($data['status'] === 'administered') {
+                    $this->decrementStockForSchedule((int) $data['schedule_id'], $item);
+                }
+
+                return response()->json([
+                    'message' => 'Creado exitosamente',
+                    'data' => $item
+                ], 201);
+            });
+        } catch (QueryException $e) {
+            // Índice único (schedule_id, scheduled_time): dos pantallas (Dashboard y
+            // Calendario) o dos dispositivos intentaron registrar la misma dosis casi
+            // al mismo tiempo. La transacción ya hizo rollback solo (create() lanzó la
+            // excepción antes del descuento de stock) — no queda nada a medias.
+            if ((int) $e->getCode() === 23000) {
+                return response()->json([
+                    'message' => 'Esta dosis ya fue registrada por otra persona. Actualiza la pantalla para ver el registro existente.',
+                ], 409);
             }
-
-            return response()->json([
-                'message' => 'Creado exitosamente',
-                'data' => $item
-            ], 201);
-        });
+            throw $e;
+        }
     }
 
     // Descuenta 1 unidad del stock del medicamento asociado al horario, sin bloquear la
@@ -104,7 +118,17 @@ class MedicationLogController extends Controller
     public function update(Request $request, $id)
     {
         $item = MedicationLog::findOrFail($id);
-        $item->update($request->all());
+
+        $data = $request->validate([
+            'status' => ['sometimes', 'in:administered,missed'],
+            'administered_time' => ['nullable', 'date'],
+            'reason_for_omission' => ['nullable', 'string'],
+            'administered_by' => ['nullable', 'exists:users,id'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $item->update($data);
+
         return response()->json([
             'message' => 'Actualizado exitosamente',
             'data' => $item
