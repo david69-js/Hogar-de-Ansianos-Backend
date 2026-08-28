@@ -5,6 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Notification;
 
+/**
+ * CRUD sobre la tabla `notifications` original — ver App\Models\Notification:
+ * quedó sin uso real, el sistema de avisos en producción es MedicationAlert +
+ * Firebase. Nada del frontend consume este controlador hoy.
+ */
 class NotificationController extends Controller
 {
     public function index()

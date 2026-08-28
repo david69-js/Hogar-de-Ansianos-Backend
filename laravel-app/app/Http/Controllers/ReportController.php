@@ -10,6 +10,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
+/**
+ * Genera los dos reportes en PDF (dompdf): por residente (medicación,
+ * omisiones y responsable de cada dosis) y por enfermera (a quién atendió, a
+ * quién omitió). Ambos aceptan el mismo filtro de periodo — día/semana/mes/año
+ * o rango — resuelto en resolveDateRange(). Protegido por `view_reports`
+ * (Admin y Enfermera); nursePdf() además exige que solo Admin pueda pedir el
+ * reporte de otra persona (una enfermera solo ve el suyo). No persiste nada:
+ * cada llamada arma el PDF al vuelo y lo devuelve como stream.
+ */
 class ReportController extends Controller
 {
     // GET /api/reports/residents/{id}/medications

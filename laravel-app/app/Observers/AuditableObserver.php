@@ -13,6 +13,13 @@ class AuditableObserver
 {
     private const HIDDEN_FIELDS = ['password', 'remember_token'];
 
+    // Cambios que no ameritan su propia fila en el audit log:
+    // - updated_at: se toca en cada guardado, sin excepción.
+    // - deleted_at: ya lo cubren, con más contexto, deactivated()/restored().
+    // - last_login_at: lo actualiza cada login; es bitácora de sesión, no una
+    //   acción administrativa sobre el registro.
+    private const IGNORED_UPDATE_FIELDS = ['updated_at', 'deleted_at', 'last_login_at'];
+
     public function created(Model $model): void
     {
         $this->record('created', $model, null, $this->sanitize($model->getAttributes()));
@@ -20,8 +27,9 @@ class AuditableObserver
 
     public function updated(Model $model): void
     {
-        $changes = $this->sanitize($model->getChanges());
-        unset($changes['updated_at']);
+        $changes = collect($this->sanitize($model->getChanges()))
+            ->except(self::IGNORED_UPDATE_FIELDS)
+            ->toArray();
         if (empty($changes)) {
             return;
         }
@@ -43,9 +51,19 @@ class AuditableObserver
         $this->record('restored', $model, null, $this->sanitize($model->getAttributes()));
     }
 
+    // Redacta el VALOR de los campos sensibles en vez de quitar la llave: así el
+    // log deja constancia de que el campo cambió (ej. "se cambió la contraseña")
+    // sin exponer el hash — quitar la llave por completo haría que un cambio de
+    // solo contraseña no generara ninguna fila, y esa acción desaparecería del
+    // todo del registro de auditoría.
     private function sanitize(array $attributes): array
     {
-        return collect($attributes)->except(self::HIDDEN_FIELDS)->toArray();
+        foreach (self::HIDDEN_FIELDS as $field) {
+            if (array_key_exists($field, $attributes)) {
+                $attributes[$field] = '[REDACTED]';
+            }
+        }
+        return $attributes;
     }
 
     private function record(string $action, Model $model, ?array $old, ?array $new): void

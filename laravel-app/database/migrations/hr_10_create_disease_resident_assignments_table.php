@@ -5,6 +5,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * Tabla intermedia: qué condición médica (diseases) tiene diagnosticada
+     * qué residente, desde cuándo y con qué notas. Sin timestamps a propósito
+     * (ver el modelo, `$timestamps = false`) y sin softDeletes: "retirar" una
+     * condición es un borrado físico.
+     */
     public function up(): void
     {
         Schema::create('disease_resident_assignments', function (Blueprint $table) {

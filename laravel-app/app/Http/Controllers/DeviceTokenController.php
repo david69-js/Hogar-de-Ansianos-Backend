@@ -6,6 +6,11 @@ use App\Models\DeviceToken;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 
+/**
+ * Registro/baja de tokens de Firebase Cloud Messaging por dispositivo (no por
+ * sesión). El frontend debe llamar a destroy() al cerrar sesión — si no, el
+ * dispositivo sigue recibiendo pushes aunque nadie esté logueado en él.
+ */
 class DeviceTokenController extends Controller
 {
     /**

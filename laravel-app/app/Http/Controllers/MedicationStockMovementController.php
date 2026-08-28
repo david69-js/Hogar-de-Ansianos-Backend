@@ -7,6 +7,16 @@ use App\Models\MedicationStockMovement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * El kardex de inventario: index()/show() son de lectura abierta a cualquier
+ * rol autenticado (Admin y Enfermera pueden VER stock e historial); store()
+ * requiere `manage_inventory`, que solo tiene Admin — Enfermera puede consultar
+ * pero no mover inventario. store() usa `lockForUpdate()` sobre el medicamento
+ * dentro de una transacción para que dos movimientos concurrentes (ej. un
+ * ajuste manual y una administración automática) no corrompan el stock con una
+ * condición de carrera — el mismo patrón que
+ * MedicationLogController::decrementStockForSchedule().
+ */
 class MedicationStockMovementController extends Controller
 {
     public function index(Request $request)

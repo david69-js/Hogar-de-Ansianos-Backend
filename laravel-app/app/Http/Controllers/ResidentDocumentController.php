@@ -6,6 +6,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Models\ResidentDocument;
 
+/**
+ * CRUD de archivos del expediente médico previo de un residente (PDF, Word,
+ * imágenes de documentos escaneados). Los archivos se suben al disco
+ * configurado (R2 en producción, local en desarrollo — ver fileDisk()) y se
+ * borran físicamente del storage cuando se reemplazan o se elimina el registro.
+ */
 class ResidentDocumentController extends Controller
 {
     private function fileDisk(): string

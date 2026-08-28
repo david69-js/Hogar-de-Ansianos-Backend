@@ -6,6 +6,14 @@ use Illuminate\Http\Request;
 use App\Models\Medication;
 use App\Models\Prescription;
 
+/**
+ * CRUD del catálogo de medicamentos. Deliberadamente NO acepta
+ * `stock_quantity` ni `expiration_date` en store()/update() — esos solo
+ * cambian a través de MedicationStockMovementController, para que quede
+ * rastro auditable de cada cambio de stock (ver Medication). destroy() bloquea
+ * el borrado si el medicamento está en uso en alguna prescripción (409), para
+ * no romper el nombre que muestran las prescripciones existentes.
+ */
 class MedicationController extends Controller
 {
     public function index()

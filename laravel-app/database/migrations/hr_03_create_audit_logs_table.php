@@ -5,6 +5,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * Registro de auditoría: quién hizo qué acción sobre qué tabla/registro y
+     * los valores antes/después (JSON como texto). Solo la escribe
+     * App\Observers\AuditableObserver — ver también AuditLogController, que a
+     * propósito solo expone lectura.
+     */
     public function up(): void
     {
         Schema::create('audit_logs', function (Blueprint $table) {

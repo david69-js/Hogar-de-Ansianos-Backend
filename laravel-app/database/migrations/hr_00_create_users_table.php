@@ -6,7 +6,12 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     /**
-     * Run the migrations.
+     * `users` = personal del hogar (Admin/Enfermera/Staff vía roles Spatie),
+     * NO residentes — esos viven en su propia tabla. `status` ("active"/
+     * "inactive") es la baja lógica real que usa AuthController::login() para
+     * bloquear el acceso; SoftDeletes (deleted_at) es un mecanismo aparte.
+     * `password_reset_tokens` y `sessions` son infraestructura estándar de
+     * Laravel — este proyecto autentica con Sanctum, no con sesiones web.
      */
     public function up(): void
     {

@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Una foto de un residente (perfil, álbum). El archivo vive en Cloudflare R2
+ * (bucket privado); `full_url` genera una URL firmada temporal en vez de
+ * exponer una URL pública fija, porque son fotos de personas, dato sensible.
+ */
 class ResidentImage extends Model
 {
     protected $guarded = ['id'];

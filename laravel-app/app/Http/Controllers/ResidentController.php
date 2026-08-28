@@ -5,6 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Resident;
 
+/**
+ * CRUD de residentes. Ver está abierto a cualquier rol autenticado;
+ * crear/editar requiere `create_residents`/`edit_residents`, desactivar/
+ * restaurar requiere `delete_residents` — todo Admin en la práctica (ver
+ * routes/api.php). index()/show() siempre incluyen los desactivados
+ * (withTrashed) para poder listarlos y reactivarlos; destroy() es baja lógica
+ * reversible (SoftDeletes), no elimina nada físicamente.
+ */
 class ResidentController extends Controller
 {
     public function index()

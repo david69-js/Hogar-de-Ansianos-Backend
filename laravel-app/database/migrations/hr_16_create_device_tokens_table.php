@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Token de Firebase Cloud Messaging de un DISPOSITIVO/navegador concreto,
+     * no de una sesión de login — por eso `token` es único por fila y
+     * sobrevive a un logout normal si nadie llama a DELETE explícitamente.
      */
     public function up(): void
     {

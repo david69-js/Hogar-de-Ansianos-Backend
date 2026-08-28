@@ -6,6 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Un archivo del expediente médico previo de un residente (PDF, Word, imagen
+ * de documento escaneado) — a diferencia de ResidentImage (siempre foto) y
+ * ResidentReport (siempre texto), este acepta cualquier tipo de archivo.
+ * Igual que ResidentImage, vive en Cloudflare R2 y se sirve con URL firmada
+ * temporal, no una URL pública fija.
+ */
 class ResidentDocument extends Model
 {
     protected $guarded = ['id'];

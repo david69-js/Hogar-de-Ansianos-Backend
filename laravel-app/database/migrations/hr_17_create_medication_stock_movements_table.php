@@ -5,6 +5,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * Kardex de inventario: una fila por cada entrada/salida/ajuste de stock
+     * de un medicamento. `quantity` es siempre el delta ya con signo — sumar
+     * todos los movimientos de un medicamento reproduce su stock actual.
+     */
     public function up(): void
     {
         Schema::create('medication_stock_movements', function (Blueprint $table) {

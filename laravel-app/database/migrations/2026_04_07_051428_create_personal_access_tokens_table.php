@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Migración estándar de Laravel Sanctum — los tokens de autenticación de
+     * la API (Bearer). No hay sesiones web en este proyecto, solo tokens.
      */
     public function up(): void
     {

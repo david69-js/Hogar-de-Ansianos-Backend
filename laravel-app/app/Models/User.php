@@ -12,6 +12,14 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Traits\HasRoles;
 use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * Un miembro del personal (Admin, Enfermera o Staff — no un residente). El rol
+ * real de autorización viene del paquete Spatie (HasRoles: roles/permisos),
+ * no de la columna `role` en texto (esa es solo informativa/legacy). Baja
+ * lógica: `status` = "inactive" bloquea el login (ver AuthController::login),
+ * independiente de `deleted_at` (SoftDeletes). Cada create/update/delete queda
+ * en el registro de auditoría vía AuditableObserver.
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */

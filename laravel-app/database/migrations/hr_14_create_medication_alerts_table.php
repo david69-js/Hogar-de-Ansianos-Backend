@@ -5,6 +5,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * Registro de avisos ya enviados — dos tipos comparten tabla: recordatorios
+     * de dosis (por resident_id+schedule_id, generados cada minuto por
+     * app:check-pending-medications) y alertas de inventario (por
+     * medication_id, generadas una vez al día por app:check-medication-stock).
+     */
     public function up(): void
     {
         Schema::create('medication_alerts', function (Blueprint $table) {

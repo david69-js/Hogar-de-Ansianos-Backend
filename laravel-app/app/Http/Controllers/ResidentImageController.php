@@ -6,6 +6,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Models\ResidentImage;
 
+/**
+ * CRUD de fotos de un residente. Igual que ResidentDocumentController, sube al
+ * disco configurado (R2/local) y borra el archivo físico al reemplazar o
+ * eliminar — ResidentImage::getFullUrlAttribute() es quien genera la URL
+ * firmada temporal que consume el frontend, no este controlador.
+ */
 class ResidentImageController extends Controller
 {
     private function imageDisk(): string

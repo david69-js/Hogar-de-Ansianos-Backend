@@ -5,6 +5,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * Fotos de un residente. El archivo real vive en storage (R2/local); esta
+     * fila solo guarda la ruta — ResidentImage::getFullUrlAttribute() genera
+     * la URL firmada temporal que consume el frontend.
+     */
     public function up(): void
     {
         Schema::create('resident_images', function (Blueprint $table) {

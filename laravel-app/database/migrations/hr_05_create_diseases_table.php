@@ -5,6 +5,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * Catálogo de condiciones médicas (CIE-10). Se asigna a un residente a
+     * través de la tabla intermedia disease_resident_assignments, no aquí.
+     */
     public function up(): void
     {
         Schema::create('diseases', function (Blueprint $table) {

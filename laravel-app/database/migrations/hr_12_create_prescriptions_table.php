@@ -5,6 +5,13 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * La orden de un medicamento para un residente — no es una dosis en sí,
+     * es la "plantilla" (dosis/vía/vigencia/instrucciones) de la que cuelgan
+     * uno o más medication_schedules (los horarios diarios reales).
+     * `is_active` (no softDeletes) es cómo se "descontinúa" sin perder
+     * historial médico — ver PrescriptionController::destroy().
+     */
     public function up(): void
     {
         Schema::create('prescriptions', function (Blueprint $table) {

@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\ResidentReport;
 
+/**
+ * CRUD de notas/bitácora libre sobre un residente (ver App\Models\ResidentReport).
+ * El endpoint funciona, pero ninguna pantalla del frontend lo usa todavía.
+ */
 class ResidentReportController extends Controller
 {
     public function index()

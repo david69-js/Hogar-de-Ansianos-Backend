@@ -5,6 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\ResidentVital;
 
+/**
+ * CRUD de mediciones de signos vitales de un residente (ver
+ * App\Models\ResidentVital). El endpoint funciona, pero ninguna pantalla del
+ * frontend lo usa todavía — no hay dónde capturarlos ni verlos.
+ */
 class ResidentVitalController extends Controller
 {
     public function index()

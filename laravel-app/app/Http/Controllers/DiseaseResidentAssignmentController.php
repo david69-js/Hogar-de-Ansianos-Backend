@@ -5,6 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\DiseaseResidentAssignment;
 
+/**
+ * Asigna/retira condiciones médicas del catálogo (Disease) a un residente. Un
+ * mismo par residente+condición no se puede asignar dos veces (chequeo en
+ * store(), 422 si ya existe). destroy() ("Quitar condición") es hard delete.
+ */
 class DiseaseResidentAssignmentController extends Controller
 {
     public function index(Request $request)

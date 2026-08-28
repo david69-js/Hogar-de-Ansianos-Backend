@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Tablas estándar de la cola de Laravel (jobs/job_batches/failed_jobs) —
+     * infraestructura del framework, no entidades del negocio.
      */
     public function up(): void
     {

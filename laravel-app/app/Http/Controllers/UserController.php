@@ -8,6 +8,15 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 use App\Models\User;
 
+/**
+ * CRUD de personal (Admin/Enfermera/Staff) — módulo 100% administrativo: todas
+ * las rutas requieren el permiso `manage_users` (ver routes/api.php), solo
+ * Admin lo tiene. `destroy()` es baja lógica manual (status="inactive"), no
+ * SoftDeletes: AuthController::login() rechaza a un usuario "inactive"
+ * aunque su fila siga existiendo. El rol se maneja en dos lugares a la vez:
+ * la columna `role` (texto, informativa) y Spatie (assignRole/syncRoles, la
+ * autorización real vía permisos).
+ */
 class UserController extends Controller
 {
     private function imageDisk(): string

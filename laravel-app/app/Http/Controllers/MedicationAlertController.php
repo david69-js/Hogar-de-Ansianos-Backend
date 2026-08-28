@@ -5,6 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\MedicationAlert;
 
+/**
+ * CRUD genérico sobre las filas de aviso que generan los comandos programados
+ * (app:check-pending-medications y app:check-medication-stock — ver
+ * MedicationAlert para el detalle de qué representa cada fila). En la
+ * práctica el frontend solo las LEE (bandeja de Notificaciones); nadie las
+ * crea a mano vía este controlador, eso lo hacen los comandos directo con
+ * Eloquent para aprovechar el índice único como candado de deduplicación.
+ */
 class MedicationAlertController extends Controller
 {
     public function index()

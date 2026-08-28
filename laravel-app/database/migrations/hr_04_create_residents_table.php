@@ -5,6 +5,13 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * `residents` = los pacientes del hogar (no personal). Centro del dominio:
+     * de aquí cuelgan condiciones médicas, prescripciones y, a través de
+     * ellas, todo el ciclo de administración de medicamentos. Baja lógica
+     * reversible (softDeletes) — desactivar un residente NO descontinúa sus
+     * prescripciones activas automáticamente, es un paso aparte.
+     */
     public function up(): void
     {
         Schema::create('residents', function (Blueprint $table) {

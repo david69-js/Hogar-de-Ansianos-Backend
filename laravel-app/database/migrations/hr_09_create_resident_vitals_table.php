@@ -5,6 +5,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * Una medición puntual de signos vitales de un residente. Tabla y CRUD
+     * existen, sin pantalla que los capture o muestre aún.
+     */
     public function up(): void
     {
         Schema::create('resident_vitals', function (Blueprint $table) {

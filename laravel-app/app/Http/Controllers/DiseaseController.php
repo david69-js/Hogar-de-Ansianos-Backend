@@ -6,6 +6,12 @@ use Illuminate\Http\Request;
 use App\Models\Disease;
 use App\Models\DiseaseResidentAssignment;
 
+/**
+ * CRUD del catálogo de condiciones médicas (CIE-10). Ver está abierto a
+ * cualquier rol autenticado; crear/editar/eliminar requiere `manage_medications`
+ * (Admin o Enfermera). Solo el catálogo en sí — asignar una condición a un
+ * residente es DiseaseResidentAssignmentController, otro recurso.
+ */
 class DiseaseController extends Controller
 {
     public function index()

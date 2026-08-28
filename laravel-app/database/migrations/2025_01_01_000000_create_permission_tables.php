@@ -6,6 +6,13 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Migración estándar del paquete spatie/laravel-permission (roles,
+     * permissions, model_has_roles, model_has_permissions,
+     * role_has_permissions) — no escrita a mano para este proyecto. Los 3
+     * roles (Admin/Enfermera/Staff) y sus 9 permisos se siembran en
+     * RolesAndPermissionsSeeder, no aquí.
+     */
     public function up(): void
     {
         $teams = config('permission.teams');

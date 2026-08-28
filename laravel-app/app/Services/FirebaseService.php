@@ -8,6 +8,14 @@ use Kreait\Firebase\Factory;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification;
 
+/**
+ * Envoltura sobre el SDK de Firebase Cloud Messaging. La usan
+ * CheckPendingMedications, CheckMedicationStock y DeviceTokenController::test()
+ * para mandar pushes — nadie llama al SDK de Firebase directo fuera de aquí.
+ * Se auto-limpia: si Firebase reporta un token como inválido/expirado
+ * (dispositivo desinstaló la app, token vencido), lo borra de device_tokens
+ * en el mismo envío, sin esperar a que alguien lo note.
+ */
 class FirebaseService
 {
     protected $messaging;

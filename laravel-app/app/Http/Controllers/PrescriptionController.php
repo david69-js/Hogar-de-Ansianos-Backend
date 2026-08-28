@@ -5,6 +5,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Prescription;
 
+/**
+ * CRUD de prescripciones (ver Prescription para el modelo). index() no filtra
+ * por `is_active`: el frontend necesita ver también las descontinuadas como
+ * historial médico. destroy() NO borra — pone `is_active=false`
+ * ("descontinuar"), reversible con `PUT {is_active:true}`. Los horarios
+ * (MedicationSchedule) se gestionan aparte, no aquí.
+ */
 class PrescriptionController extends Controller
 {
     public function index(Request $request)

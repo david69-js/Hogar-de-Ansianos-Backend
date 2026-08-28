@@ -5,6 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Job;
 
+/**
+ * CRUD administrativo sobre la tabla `jobs` (cola interna de Laravel, no una
+ * entidad del negocio). Existe por completitud pero nadie lo usa en la
+ * práctica — los jobs los crea/consume el propio framework.
+ */
 class JobController extends Controller
 {
     public function index()

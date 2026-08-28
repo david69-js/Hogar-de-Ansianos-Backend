@@ -8,6 +8,15 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Login/logout/perfil propio vía Laravel Sanctum (tokens personales, no
+ * sesiones). login() rechaza cuentas con status distinto de "active"/null;
+ * logout() revoca el token actual (currentAccessToken()->delete()) — el
+ * frontend debe llamarlo siempre al cerrar sesión, junto con
+ * DELETE /device-tokens, o el token y el push del dispositivo siguen vivos
+ * indefinidamente. register() existe pero el frontend no lo usa (alta de
+ * personal se hace vía UserController, solo Admin).
+ */
 class AuthController extends Controller
 {
     private function imageDisk(): string

@@ -12,11 +12,39 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * El kardex real de administración de medicamentos (ver MedicationLog).
+ * index() acepta `?date=` o `?from=&to=` para no bajar la tabla completa (crece
+ * sin límite) — Calendario/Dashboard/Historial la usan así. store() es el
+ * corazón clínico del sistema: calcula el retraso en el servidor (nunca confía
+ * en lo que mande el cliente), descuenta 1 unidad de inventario si la dosis
+ * fue administrada (ver decrementStockForSchedule(), en la misma transacción),
+ * y está protegido contra doble registro de la misma dosis por un índice único
+ * — si dos pantallas o dispositivos intentan marcar la misma dosis casi al
+ * mismo tiempo, el segundo recibe 409, no un registro duplicado.
+ * Solo `store` requiere `administer_medications`; index/show/update/destroy
+ * están abiertos a cualquier rol autenticado.
+ */
 class MedicationLogController extends Controller
 {
-    public function index()
+    // Sin filtros, esta tabla crece sin límite (una fila por cada dosis
+    // administrada u omitida) y Calendario/Dashboard/Historial la bajaban
+    // completa para luego filtrar en el cliente. `date` (un día) y `from`/`to`
+    // (rango) dejan que cada pantalla pida solo lo que va a mostrar.
+    public function index(Request $request)
     {
-        $items = MedicationLog::all();
+        $query = MedicationLog::query();
+
+        if ($request->filled('date')) {
+            $query->whereDate('scheduled_time', $request->query('date'));
+        } elseif ($request->filled('from') && $request->filled('to')) {
+            $query->whereBetween('scheduled_time', [
+                $request->query('from') . ' 00:00:00',
+                $request->query('to') . ' 23:59:59',
+            ]);
+        }
+
+        $items = $query->get();
         return response()->json($items, 200);
     }
 

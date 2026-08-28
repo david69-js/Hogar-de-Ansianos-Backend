@@ -5,6 +5,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
+    /**
+     * Catálogo de medicamentos + inventario simple (un stock por medicamento,
+     * no por lote). `stock_quantity`/`expiration_date` solo cambian vía
+     * medication_stock_movements (ver esa tabla) — el catálogo nunca los edita
+     * directo, para que quede rastro auditable de cada cambio de stock.
+     */
     public function up(): void
     {
         Schema::create('medications', function (Blueprint $table) {
