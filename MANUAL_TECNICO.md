@@ -111,7 +111,7 @@ No se listan valores reales aquí — solo qué existe y para qué sirve cada gr
 | Cloudflare R2 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET`, `AWS_ENDPOINT`, `AWS_USE_PATH_STYLE_ENDPOINT` | Fotos/documentos de residentes y ahora también respaldos de BD |
 | Correo | `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Notificaciones de backup |
 | Backup | `BACKUP_NOTIFICATION_EMAIL`, `BACKUP_ARCHIVE_PASSWORD` (opcional) | A quién avisar; si se define `BACKUP_ARCHIVE_PASSWORD`, los zips quedan cifrados (no configurado por defecto) |
-| Firebase | credenciales del servicio (ver `config/services.php`) | Notificaciones push (FCM) |
+| Firebase | `FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_CLIENT_ID`, `FIREBASE_CLIENT_CERT_URL` | Notificaciones push (FCM). `storage/app/sorherminia-web-firebase.json` está commiteado como **plantilla** con placeholders `${FIREBASE_*}` (sin secretos) — `entrypoint.sh` lo regenera con los valores reales de estas variables en cada arranque del contenedor, antes de que algo use Firebase. `FIREBASE_PRIVATE_KEY` se guarda con `\n` literal (no saltos de línea reales) en la variable de entorno. |
 | Scheduler (solo el segundo servicio de Railway) | `PROCESS_TYPE=scheduler`, `RUN_MIGRATIONS=false` | Ver sección 3 |
 
 ## 6. Limitaciones conocidas (a propósito, no pendientes)

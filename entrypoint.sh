@@ -81,6 +81,46 @@ if [ "${CACHE_STORE:-database}" = "database" ] && [ "${ALLOW_DATABASE_CACHE:-fal
   export CACHE_STORE="file"
 fi
 
+# storage/app/sorherminia-web-firebase.json vive en el repo como PLANTILLA con
+# placeholders ${FIREBASE_*} (sin secretos reales) -- las credenciales reales
+# solo viven como variables de entorno (Railway) o en .env (local, igual que
+# APP_KEY arriba: en local no hay env vars de contenedor reales para esto,
+# así que hay que leerlas de .env a mano). Aquí las inyectamos en el archivo
+# en cada arranque, antes de que algo intente usar Firebase.
+FIREBASE_CREDENTIALS_FILE="${FIREBASE_CREDENTIALS:-${APP_DIR}/storage/app/sorherminia-web-firebase.json}"
+for var in FIREBASE_PROJECT_ID FIREBASE_PRIVATE_KEY_ID FIREBASE_PRIVATE_KEY FIREBASE_CLIENT_EMAIL FIREBASE_CLIENT_ID FIREBASE_CLIENT_CERT_URL; do
+  if [ -z "$(eval echo \${$var:-})" ]; then
+    export "$var=$(grep -E "^${var}=" "${ENV_FILE}" 2>/dev/null | tail -n1 | cut -d '=' -f2-)"
+  fi
+done
+
+if [ -f "${FIREBASE_CREDENTIALS_FILE}" ] && [ -n "${FIREBASE_PROJECT_ID:-}" ]; then
+  echo "Generando ${FIREBASE_CREDENTIALS_FILE} desde variables de entorno..."
+  FIREBASE_CREDENTIALS_FILE="${FIREBASE_CREDENTIALS_FILE}" php -r '
+    $path = getenv("FIREBASE_CREDENTIALS_FILE");
+    $data = json_decode(file_get_contents($path), true);
+    $map = [
+        "FIREBASE_PROJECT_ID" => "project_id",
+        "FIREBASE_PRIVATE_KEY_ID" => "private_key_id",
+        "FIREBASE_PRIVATE_KEY" => "private_key",
+        "FIREBASE_CLIENT_EMAIL" => "client_email",
+        "FIREBASE_CLIENT_ID" => "client_id",
+        "FIREBASE_CLIENT_CERT_URL" => "client_x509_cert_url",
+    ];
+    foreach ($map as $envKey => $jsonKey) {
+        $value = getenv($envKey);
+        if ($value === false || $value === "") {
+            continue;
+        }
+        if ($jsonKey === "private_key") {
+            $value = str_replace("\\n", "\n", $value);
+        }
+        $data[$jsonKey] = $value;
+    }
+    file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+  '
+fi
+
 mkdir -p /var/www/sorherminia/storage/framework/views
 mkdir -p /var/www/sorherminia/storage/framework/cache/data
 mkdir -p /var/www/sorherminia/storage/framework/sessions
