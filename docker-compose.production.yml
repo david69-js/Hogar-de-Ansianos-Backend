@@ -25,6 +25,35 @@ services:
       - laravel
     depends_on:
       - db
+
+  # Sin este servicio, app:check-pending-medications (avisos push cada minuto),
+  # app:check-medication-stock (alertas de inventario diarias) y backup:run/clean
+  # nunca corren solos en producción — Laravel no tiene un cron propio, necesita
+  # algo ejecutando `schedule:work` (o `schedule:run` cada minuto) permanentemente.
+  scheduler:
+    image: laravel-app
+    container_name: laravel-sorherminia-scheduler
+    restart: unless-stopped
+    working_dir: /var/www/sorherminia
+    entrypoint: ["php", "artisan", "schedule:work"]
+    volumes:
+      - ./laravel-app:/var/www/sorherminia
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - LOG_CHANNEL=stderr
+      - DB_CONNECTION=mysql
+      - DB_HOST=${DB_HOST:-mysql_sorherminia}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DATABASE=${DB_DATABASE:-sorherminia}
+      - DB_USERNAME=${DB_USERNAME:-sorherminia_user}
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+    networks:
+      - laravel
+    depends_on:
+      - db
+      - app
+
   webserver:
     image: nginx:alpine
     container_name: nginx_sorherminia

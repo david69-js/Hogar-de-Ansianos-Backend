@@ -61,6 +61,20 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+
+            // Leído por spatie/laravel-backup (DbDumperFactory), no por Laravel: el
+            // cliente mysqldump/mariadb-dump exige TLS por defecto y rechaza el
+            // certificado autofirmado de la imagen mysql:8.0 del docker-compose. La
+            // conexión ya está aislada dentro de la red interna de Docker, así que
+            // desactivar TLS aquí no expone nada nuevo. `ssl_flag` es necesario
+            // además de `skip_ssl`: el paquete por defecto emite "ssl-mode=DISABLED"
+            // (sintaxis de MySQL 8.0.26+), pero la imagen `default-mysql-client` de
+            // Debian instala el cliente de MariaDB, que no reconoce ese flag y solo
+            // entiende el "skip-ssl" clásico.
+            'dump' => [
+                'skip_ssl' => true,
+                'ssl_flag' => 'skip-ssl',
+            ],
         ],
 
         'mariadb' => [

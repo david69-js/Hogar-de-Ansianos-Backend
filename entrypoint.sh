@@ -124,6 +124,20 @@ fi
 chown -R www-data:www-data /var/www/sorherminia/storage /var/www/sorherminia/bootstrap/cache
 chmod -R ug+rwX /var/www/sorherminia/storage /var/www/sorherminia/bootstrap/cache
 
+# En Railway un solo Dockerfile solo puede definir un servicio "web" — no hay
+# forma de correr docker-compose con un segundo contenedor "scheduler" como en
+# local/producción con Docker Compose. La forma de tener el scheduler ahí es
+# desplegar este mismo repo/imagen como un SEGUNDO servicio de Railway, con
+# PROCESS_TYPE=scheduler en sus variables de entorno (y normalmente
+# RUN_MIGRATIONS=false, para que no compitan las migraciones de ambos
+# servicios en cada deploy). El ENTRYPOINT del Dockerfile no reenvía argumentos
+# a nada — un "Custom Start Command" en Railway no alcanzaría a reemplazar el
+# "exec apache2-foreground" de abajo, así que el switch tiene que vivir aquí.
+if [ "${PROCESS_TYPE:-web}" = "scheduler" ]; then
+  echo "PROCESS_TYPE=scheduler: corriendo el scheduler de Laravel en vez de Apache..."
+  exec php artisan schedule:work
+fi
+
 # Start Apache in the foreground
 echo "Starting Apache..."
 exec apache2-foreground
