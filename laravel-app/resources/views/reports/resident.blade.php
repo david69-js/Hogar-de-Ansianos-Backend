@@ -58,6 +58,10 @@
         <div class="summary-cell"><span class="n">{{ $summary['missing'] }}</span><span class="l">Sin registro</span></div>
         <div class="summary-cell"><span class="n">{{ $summary['adherence'] !== null ? $summary['adherence'].'%' : '—' }}</span><span class="l">Adherencia</span></div>
     </div>
+    <div class="summary" style="margin-top: 4px;">
+        <div class="summary-cell" style="width: 50%;"><span class="n">{{ $summary['onTime'] }}</span><span class="l">Administradas a tiempo (en el horario)</span></div>
+        <div class="summary-cell" style="width: 50%;"><span class="n">{{ $summary['late'] }}</span><span class="l">Administradas con retraso (dentro de la ventana de 15 min)</span></div>
+    </div>
 
     <h2>Prescripciones Vigentes en el Periodo</h2>
     @if($prescriptions->isEmpty())

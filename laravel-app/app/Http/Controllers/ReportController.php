@@ -41,9 +41,16 @@ class ReportController extends Controller
 
         $missingDoses = $this->findMissingDoses($prescriptions, $logs, $start, $end);
 
-        $administeredCount = $logs->where('status', 'administered')->count();
+        $administeredLogs = $logs->where('status', 'administered');
+        $administeredCount = $administeredLogs->count();
         $missedCount = $logs->where('status', 'missed')->count();
         $totalExpected = $administeredCount + $missedCount + $missingDoses->count();
+
+        // "A tiempo" = administrada en el horario programado (delay_minutes <= 0);
+        // "con retraso" = administrada después, pero siempre dentro de la ventana de
+        // quince minutos que permite el sistema (después de eso solo se puede omitir).
+        $onTimeCount = $administeredLogs->where('delay_minutes', '<=', 0)->count();
+        $lateCount = $administeredCount - $onTimeCount;
 
         $pdf = Pdf::loadView('reports.resident', [
             'resident' => $resident,
@@ -56,6 +63,8 @@ class ReportController extends Controller
             'summary' => [
                 'expected' => $totalExpected,
                 'administered' => $administeredCount,
+                'onTime' => $onTimeCount,
+                'late' => $lateCount,
                 'missed' => $missedCount,
                 'missing' => $missingDoses->count(),
                 'adherence' => $totalExpected > 0 ? round($administeredCount / $totalExpected * 100, 1) : null,
