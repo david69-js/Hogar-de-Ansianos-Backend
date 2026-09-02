@@ -183,7 +183,7 @@ php artisan key:generate --show
 - Copia el valor en la variable `APP_KEY` de Railway.
 
 7. En `Settings` del servicio web, verifica:
-- `Healthcheck Path`: `/`
+- `Healthcheck Path`: `/up` (health check nativo de Laravel — ver sección de disponibilidad en `MANUAL_TECNICO.md`; más liviano y específico que `/`, que renderiza la vista de bienvenida completa)
 - `Restart Policy`: `On Failure` o `Always`
 
 8. Despliega:

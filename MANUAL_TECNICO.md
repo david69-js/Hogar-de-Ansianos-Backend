@@ -100,7 +100,50 @@ Muestra si el disco es alcanzable, si el respaldo más reciente está "sano" (no
 
 No existe (todavía) un comando de un solo paso "restaurar el último backup" — es un procedimiento manual deliberado, para no correr el riesgo de que un comando automatizado sobrescriba datos reales por error.
 
-## 5. Variables de entorno relevantes (referencia rápida)
+## 5. Disponibilidad y monitoreo
+
+Laravel 11+ trae un health check nativo en `GET /up` (`bootstrap/app.php` → `health: '/up'`). Responde 200 solo con confirmar que Apache/PHP arrancó y el framework puede procesar una petición — **a propósito no verifica la base de datos ni otros servicios externos**. Un corte breve de red hacia MySQL no debería hacer que Railway reinicie el contenedor web (evita reinicios en cadena por una falla momentánea); un problema real de base de datos igual se nota de inmediato en cualquier endpoint real (`/api/me`, etc.), solo que no dispara un reinicio automático del proceso.
+
+### Configuración en Railway
+
+En `Settings` del servicio web:
+- `Healthcheck Path`: `/up`
+- `Restart Policy`: `On Failure` (reinicia el contenedor solo si `/up` deja de responder)
+
+Esto cubre la disponibilidad *dentro* de Railway: si el proceso de Apache muere o deja de responder, Railway lo reinicia solo. No cubre el caso de que Railway mismo tenga una caída, o que nadie se entere de un reinicio en cadena — para eso hace falta un monitor externo.
+
+### Monitor externo (recomendado, requiere que tú lo configures)
+
+Railway no avisa a nadie cuando el healthcheck falla, solo reinicia el contenedor. Para que alguien se entere si el sistema queda caído de verdad:
+
+1. Crea una cuenta gratuita en un servicio de uptime monitoring (ej. [UptimeRobot](https://uptimerobot.com), [Better Uptime](https://betteruptime.com) o similar — cualquiera con plan gratuito de chequeo cada 5 minutos sirve).
+2. Configura un monitor tipo "HTTP(s)" apuntando a `https://TU_DOMINIO_RAILWAY/up`, intervalo de 5 minutos.
+3. Configura la alerta por correo (y opcionalmente SMS/WhatsApp si el plan lo permite) al correo de quien deba enterarse si el sistema se cae durante horario de administración de medicamentos.
+
+Esto no requiere cambios de código ni de infraestructura del repo — es una cuenta externa que decides tú, con el correo que prefieras recibiendo las alertas.
+
+## 6. Rendimiento — medición realizada
+
+El documento de análisis señalaba que el panel, el calendario y el historial descargan colecciones completas en vez de endpoints agregados, como riesgo "no verificado". Se hizo una medición con volumen sintético (40 residentes, ~120 prescripciones activas, ~180 horarios, 90 días de historial de dosis — sembrado dentro de una transacción revertida al final, sin dejar datos de prueba) para cuantificar el riesgo real:
+
+| Endpoint | Filas | Payload | Tiempo |
+|---|---|---|---|
+| `GET /residents` (catálogo completo) | 41 | 18.9 KB | 0.6 ms |
+| `GET /prescriptions` (sin filtrar) | 122 | 37.4 KB | 0.6 ms |
+| `GET /medication-schedules` (sin filtrar) | 182 | 26.1 KB | 0.6 ms |
+| `GET /medication-logs?date=hoy` (panel/calendario) | 182 | 59.7 KB | 4.8 ms |
+| `GET /medication-logs?from&to=Este mes` (historial) | 364 | 119.4 KB | 4.4 ms |
+| `GET /medication-logs?from&to=Todo` (90 días, peor caso) | 16 562 | 5.4 MB | 58 ms |
+| `GET /reports/residents/{id}/medications?period=month` (PDF) | — | 1.2 MB | 242 ms |
+| `GET /reports/nurses/{id}/activity?period=month` (PDF) | — | 1.2 MB | 208 ms |
+
+**Conclusión**: al tamaño real de un hogar de ancianos (decenas de residentes, no miles), `residents`, `prescriptions` y `medication-schedules` nunca van a ser un problema — están acotados por la cantidad de residentes activos, no crecen indefinidamente. El filtro por fecha ya aplicado a `medication-logs` (panel, calendario, "Este mes" del historial) mantiene esas consultas rápidas y livianas indefinidamente.
+
+**El único riesgo real que la medición confirma**: el filtro **"Todo"** del historial, que no acota por fecha. Con 90 días de uso ya pesa 5.4 MB y 16 562 filas; con 1-2 años de uso acumulado (el horizonte real de este sistema en producción) ese payload va a crecer varias veces más — problemático en una conexión móvil lenta y en el uso de memoria del dispositivo. Los reportes PDF (200-250 ms, ~1.2 MB) son aceptables porque son una acción manual y ocasional, no una pantalla de uso constante.
+
+**Recomendación cuando se quiera atender esto** (no implementado — pendiente de decisión): acotar el filtro "Todo" del historial a una ventana razonable (ej. últimos 12 meses) en vez de sin límite, o paginar esa consulta. No es urgente hoy (el sistema recién se va a desplegar), pero conviene revisarlo antes de que pasen 1-2 años de uso real.
+
+## 7. Variables de entorno relevantes (referencia rápida)
 
 No se listan valores reales aquí — solo qué existe y para qué sirve cada grupo.
 
@@ -114,7 +157,7 @@ No se listan valores reales aquí — solo qué existe y para qué sirve cada gr
 | Firebase | `FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_CLIENT_ID`, `FIREBASE_CLIENT_CERT_URL` | Notificaciones push (FCM). `storage/app/sorherminia-web-firebase.json` está commiteado como **plantilla** con placeholders `${FIREBASE_*}` (sin secretos) — `entrypoint.sh` lo regenera con los valores reales de estas variables en cada arranque del contenedor, antes de que algo use Firebase. `FIREBASE_PRIVATE_KEY` se guarda con `\n` literal (no saltos de línea reales) y **entre comillas simples** en `.env` local — sin comillas, el parser de `.env` de Laravel falla porque el valor trae espacios literales ("BEGIN PRIVATE KEY"). En Railway no aplica: las variables llegan ya como texto real, sin este problema de formato. |
 | Scheduler (solo el segundo servicio de Railway) | `PROCESS_TYPE=scheduler`, `RUN_MIGRATIONS=false` | Ver sección 3 |
 
-## 6. Limitaciones conocidas (a propósito, no pendientes)
+## 8. Limitaciones conocidas (a propósito, no pendientes)
 
 - Los respaldos no incluyen archivos de R2 (fotos/documentos) — se apoya en la propia redundancia de Cloudflare para esos.
 - Los zips de respaldo no van cifrados por defecto (el bucket R2 ya es privado). Si se requiere una capa adicional, definir `BACKUP_ARCHIVE_PASSWORD`.
