@@ -7,14 +7,20 @@ use App\Models\ResidentVital;
 
 /**
  * CRUD de mediciones de signos vitales de un residente (ver
- * App\Models\ResidentVital). El endpoint funciona, pero ninguna pantalla del
- * frontend lo usa todavía — no hay dónde capturarlos ni verlos.
+ * App\Models\ResidentVital). Lo usa la pantalla de detalle de residente en
+ * el frontend (sección "Signos Vitales").
  */
 class ResidentVitalController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $items = ResidentVital::all();
+        $query = ResidentVital::query();
+
+        if ($request->has('resident_id')) {
+            $query->where('resident_id', $request->query('resident_id'));
+        }
+
+        $items = $query->orderByDesc('recorded_at')->get();
         return response()->json($items, 200);
     }
 
@@ -26,9 +32,23 @@ class ResidentVitalController extends Controller
 
     public function store(Request $request)
     {
-        $item = ResidentVital::create($request->all());
+        $validated = $request->validate([
+            'resident_id' => 'required|exists:residents,id',
+            'weight' => 'nullable|numeric|min:0',
+            'blood_pressure' => 'nullable|string|max:20',
+            'heart_rate' => 'nullable|integer|min:0',
+            'temperature' => 'nullable|numeric|min:0',
+            'oxygen_saturation' => 'nullable|integer|min:0|max:100',
+            'recorded_at' => 'nullable|date',
+        ]);
+
+        $validated['recorded_by'] = $request->user()?->id;
+        $validated['recorded_at'] = $validated['recorded_at'] ?? now();
+
+        $item = ResidentVital::create($validated);
+
         return response()->json([
-            'message' => 'Creado exitosamente',
+            'message' => 'Signos vitales registrados exitosamente',
             'data' => $item
         ], 201);
     }
@@ -36,7 +56,18 @@ class ResidentVitalController extends Controller
     public function update(Request $request, $id)
     {
         $item = ResidentVital::findOrFail($id);
-        $item->update($request->all());
+
+        $validated = $request->validate([
+            'weight' => 'nullable|numeric|min:0',
+            'blood_pressure' => 'nullable|string|max:20',
+            'heart_rate' => 'nullable|integer|min:0',
+            'temperature' => 'nullable|numeric|min:0',
+            'oxygen_saturation' => 'nullable|integer|min:0|max:100',
+            'recorded_at' => 'nullable|date',
+        ]);
+
+        $item->update($validated);
+
         return response()->json([
             'message' => 'Actualizado exitosamente',
             'data' => $item

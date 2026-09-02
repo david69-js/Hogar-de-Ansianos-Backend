@@ -90,7 +90,13 @@ fi
 FIREBASE_CREDENTIALS_FILE="${FIREBASE_CREDENTIALS:-${APP_DIR}/storage/app/sorherminia-web-firebase.json}"
 for var in FIREBASE_PROJECT_ID FIREBASE_PRIVATE_KEY_ID FIREBASE_PRIVATE_KEY FIREBASE_CLIENT_EMAIL FIREBASE_CLIENT_ID FIREBASE_CLIENT_CERT_URL; do
   if [ -z "$(eval echo \${$var:-})" ]; then
-    export "$var=$(grep -E "^${var}=" "${ENV_FILE}" 2>/dev/null | tail -n1 | cut -d '=' -f2-)"
+    raw_value="$(grep -E "^${var}=" "${ENV_FILE}" 2>/dev/null | tail -n1 | cut -d '=' -f2-)"
+    # En .env estos valores van entre comillas simples (private_key trae
+    # espacios literales -- "BEGIN PRIVATE KEY" -- que el parser de .env de
+    # Laravel rechaza si no van entre comillas). grep/cut no las quita solas.
+    raw_value="${raw_value#\'}"
+    raw_value="${raw_value%\'}"
+    export "$var=${raw_value}"
   fi
 done
 
