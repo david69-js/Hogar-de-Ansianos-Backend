@@ -19,6 +19,12 @@ return new class extends Migration {
             $table->foreignId('prescription_id')->constrained('prescriptions')->onDelete('cascade');
             $table->time('scheduled_time');
             $table->timestamps();
+
+            // Evita repetir el mismo horario dos veces DENTRO de una misma prescripción
+            // (ej. Metformina 08:00 y 08:00 por error de captura). No bloquea que dos
+            // prescripciones distintas compartan hora — eso es normal (varios
+            // medicamentos administrados juntos).
+            $table->unique(['prescription_id', 'scheduled_time'], 'medication_schedules_prescription_time_unique');
         });
     }
 

@@ -24,10 +24,9 @@ return new class extends Migration {
             $table->dateTime('administered_time')->nullable();
             $table->string('status')->nullable();
             $table->integer('delay_minutes')->nullable();
-            // error_type/administered_dose: columnas presentes pero sin uso — ninguna
-            // pantalla las captura hoy (ver documento de análisis del proyecto).
-            $table->string('error_type')->nullable();
-            $table->string('administered_dose')->nullable();
+            // No se tipifica la incidencia de una dosis omitida: solo el motivo en
+            // texto libre. En la práctica el caso de "dosis incorrecta" es raro y no
+            // justificaba columnas propias (error_type/administered_dose).
             $table->text('reason_for_omission')->nullable();
             $table->text('notes')->nullable();
             $table->foreignId('claimed_by')->nullable()->constrained('users')->onDelete('set null');

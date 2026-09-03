@@ -18,6 +18,7 @@ return new class extends Migration {
             $table->string('name')->unique()->nullable();
             $table->text('description')->nullable();
             $table->string('dosage_form')->nullable();
+            $table->string('concentration')->nullable();
             $table->unsignedInteger('stock_quantity')->default(0);
             // Umbral para la alerta de "stock bajo" (null = sin alerta configurada).
             $table->unsignedInteger('minimum_stock')->nullable();
