@@ -7,22 +7,6 @@ use App\Http\Controllers\AuthController;
 // Rutas Públicas (No requieren Token)
 Route::post('/login', [AuthController::class, 'login']);
 // routes/api.php
-Route::post('/seed', function () {
-    try {
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
-        $output = \Illuminate\Support\Facades\Artisan::output();
-        return response()->json([
-            'message' => 'Seeders executed',
-            'output' => $output
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'message' => 'Seeder failed',
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ], 500);
-    }
-});
 
 //Route::get('users', [App\Http\Controllers\UserController::class, 'index']);
 // Rutas Protegidas (Requieren Token de Sanctum)
