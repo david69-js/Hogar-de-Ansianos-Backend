@@ -158,7 +158,6 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
       break
     fi
     echo "Migration attempt ${i} failed. Retrying in 5s..."
-    php artisan db:seed --force
     sleep 5
   done
 fi
