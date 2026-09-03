@@ -10,8 +10,10 @@ return new class extends Migration {
      * NO residentes — esos viven en su propia tabla. `status` ("active"/
      * "inactive") es la baja lógica real que usa AuthController::login() para
      * bloquear el acceso; SoftDeletes (deleted_at) es un mecanismo aparte.
-     * `password_reset_tokens` y `sessions` son infraestructura estándar de
-     * Laravel — este proyecto autentica con Sanctum, no con sesiones web.
+     * `sessions` es infraestructura estándar de Laravel que este proyecto no
+     * usa (autentica con Sanctum, no con sesiones web). `password_reset_tokens`
+     * sí se usa: guarda el código de 6 dígitos hasheado del flujo de
+     * recuperación de contraseña (ver PasswordResetController).
      */
     public function up(): void
     {
@@ -42,7 +44,13 @@ return new class extends Migration {
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
+            // Hash del código de 6 dígitos — nunca se guarda en claro, igual que
+            // una contraseña: quien lea la base no puede usar el código.
             $table->string('token');
+            // Intentos fallidos de ese código. Al llegar al máximo se borra la
+            // fila, para que 1,000,000 de combinaciones no sean fuerza-brutables
+            // dentro de los 15 minutos de vigencia.
+            $table->unsignedTinyInteger('attempts')->default(0);
             $table->timestamp('created_at')->nullable();
         });
 

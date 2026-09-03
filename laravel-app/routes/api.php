@@ -6,7 +6,12 @@ use App\Http\Controllers\AuthController;
 
 // Rutas Públicas (No requieren Token)
 Route::post('/login', [AuthController::class, 'login']);
-// routes/api.php
+
+// Recuperación de contraseña: públicas por necesidad — son para quien no puede
+// entrar y por tanto no tiene token. La protección va dentro del controlador
+// (respuesta genérica, código hasheado, vencimiento, límite de intentos).
+Route::post('/password/forgot', [App\Http\Controllers\PasswordResetController::class, 'forgot']);
+Route::post('/password/reset', [App\Http\Controllers\PasswordResetController::class, 'reset']);
 
 //Route::get('users', [App\Http\Controllers\UserController::class, 'index']);
 // Rutas Protegidas (Requieren Token de Sanctum)
