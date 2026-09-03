@@ -134,6 +134,7 @@ class AuthController extends Controller
             'first_name' => 'sometimes|string|max:255',
             'last_name' => 'sometimes|string|max:255',
             'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
+            'recovery_email' => 'sometimes|nullable|string|email|max:255',
             'password' => 'sometimes|string|min:8',
             'phone' => 'sometimes|string',
             'address' => 'sometimes|string',

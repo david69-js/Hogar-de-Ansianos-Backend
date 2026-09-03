@@ -25,7 +25,14 @@ return new class extends Migration {
             $table->string('second_last_name')->nullable();
             $table->string('dpi')->unique();
             $table->string('phone');
+            // Correo institucional: es la identidad de login (por eso unique).
+            // Puede ser un buzón que en la práctica nadie revise.
             $table->string('email')->unique();
+            // Correo personal real (Gmail, etc.) al que se envía el código para
+            // recuperar la contraseña. Sin unique a propósito: dos personas
+            // pueden compartir un correo familiar, y no es identidad de login.
+            // Si está vacío, el código va al correo institucional.
+            $table->string('recovery_email')->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->string('role');

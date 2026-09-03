@@ -76,8 +76,12 @@ class PasswordResetController extends Controller
             ]
         );
 
+        // El correo institucional identifica la cuenta, pero suele ser un buzón
+        // que nadie revisa; el código va al correo personal real si lo tiene.
+        $destination = $user->recovery_email ?: $user->email;
+
         try {
-            Mail::to($email)->send(
+            Mail::to($destination)->send(
                 new PasswordResetCodeMail($code, $user->first_name ?? '', self::CODE_TTL_MINUTES)
             );
         } catch (\Throwable $e) {
