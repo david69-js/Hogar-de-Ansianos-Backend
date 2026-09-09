@@ -136,10 +136,15 @@ class AuthController extends Controller
             'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
             'recovery_email' => 'sometimes|nullable|string|email|max:255',
             'password' => 'sometimes|string|min:8',
-            'phone' => 'sometimes|string',
-            'address' => 'sometimes|string',
-            'emergency_contact' => 'sometimes|string',
-            'emergency_phone' => 'sometimes|string',
+            // nullable en los campos opcionales: el formulario de perfil manda
+            // "" cuando están vacíos, y el middleware ConvertEmptyStringsToNull
+            // los vuelve null antes de validar. Sin nullable, un usuario sin
+            // dirección o sin cargo recibía 422 al guardar cualquier cambio.
+            'phone' => 'sometimes|nullable|string',
+            'position' => 'sometimes|nullable|string|max:255',
+            'address' => 'sometimes|nullable|string',
+            'emergency_contact' => 'sometimes|nullable|string',
+            'emergency_phone' => 'sometimes|nullable|string',
             'profile_image' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
