@@ -65,7 +65,15 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Hora de Guatemala y no UTC: todo el sistema maneja horas de reloj de
+    // pared locales sin zona (los horarios son "08:00" y el frontend guarda las
+    // dosis con toMysqlDateTime(), que usa la hora local del navegador). Con
+    // UTC, now() quedaba 6 horas adelantado respecto de esas horas: el aviso de
+    // una dosis de las 08:00 salía a las 02:00, y a las 08:00 el servidor ya la
+    // daba por atrasada. Guatemala no usa horario de verano, así que el desfase
+    // es fijo. Los timestamps (created_at, etc.) siguen llegando bien al
+    // frontend porque Laravel los serializa en ISO‑8601 convertidos a UTC.
+    'timezone' => env('APP_TIMEZONE', 'America/Guatemala'),
 
     /*
     |--------------------------------------------------------------------------
