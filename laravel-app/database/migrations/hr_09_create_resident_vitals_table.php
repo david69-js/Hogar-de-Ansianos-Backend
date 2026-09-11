@@ -6,8 +6,8 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     /**
-     * Una medición puntual de signos vitales de un residente. Tabla y CRUD
-     * existen, sin pantalla que los capture o muestre aún.
+     * Una medición puntual de signos vitales de un residente, capturada desde
+     * la sección "Signos Vitales" de la ficha del residente (frontend).
      */
     public function up(): void
     {

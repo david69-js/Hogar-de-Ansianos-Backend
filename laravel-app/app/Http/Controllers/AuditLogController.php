@@ -5,11 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
 
-// Solo lectura a propósito: las filas las genera únicamente AuditableObserver.
-// Un audit log que se pueda escribir/borrar por API deja de servir como prueba
-// de qué pasó — por eso no hay store/update/destroy aquí ni en las rutas.
+/**
+ * Expone el registro de auditoría en solo lectura (index/show). Protegido por
+ * `manage_users` en las rutas (solo Admin) — ver routes/api.php. Las filas las
+ * genera únicamente App\Observers\AuditableObserver cuando se guarda/borra un
+ * modelo observado; un audit log que se pueda escribir/borrar por API deja de
+ * servir como prueba de qué pasó, por eso no hay store/update/destroy aquí ni
+ * en las rutas (apiResource solo registra ['index', 'show']).
+ */
 class AuditLogController extends Controller
 {
+    // GET /api/audit-logs — filtra por tabla/acción/usuario (todos opcionales,
+    // combinables) y pagina de 50 en 50, más reciente primero.
     public function index(Request $request)
     {
         $query = AuditLog::query()->with('user')->latest();
@@ -30,6 +37,7 @@ class AuditLogController extends Controller
         return response()->json($items, 200);
     }
 
+    // GET /api/audit-logs/{id} — detalle de una fila puntual.
     public function show($id)
     {
         $item = AuditLog::with('user')->findOrFail($id);

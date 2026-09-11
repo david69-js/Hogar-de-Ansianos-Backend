@@ -12,6 +12,9 @@ use App\Models\ResidentVital;
  */
 class ResidentVitalController extends Controller
 {
+    // GET /api/resident-vitals?resident_id={id} → historial de un residente,
+    // más reciente primero. Sin resident_id, devuelve todas las mediciones de
+    // todos los residentes (sin uso real del frontend, pero queda disponible).
     public function index(Request $request)
     {
         $query = ResidentVital::query();
@@ -42,6 +45,10 @@ class ResidentVitalController extends Controller
             'recorded_at' => 'nullable|date',
         ]);
 
+        // Quién y cuándo: recorded_by siempre es el usuario autenticado (no se
+        // manda desde el frontend), y recorded_at usa el momento del registro si
+        // la pantalla no especificó uno explícito (permite capturar mediciones
+        // retroactivas sin obligar a elegir fecha/hora en el caso normal).
         $validated['recorded_by'] = $request->user()?->id;
         $validated['recorded_at'] = $validated['recorded_at'] ?? now();
 
@@ -53,6 +60,8 @@ class ResidentVitalController extends Controller
         ], 201);
     }
 
+    // Sin pantalla que lo use todavía (vital-signs.tsx solo crea) — existe para
+    // corregir un valor mal capturado sin tener que borrar y volver a crear.
     public function update(Request $request, $id)
     {
         $item = ResidentVital::findOrFail($id);

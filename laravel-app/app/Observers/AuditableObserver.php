@@ -5,10 +5,18 @@ namespace App\Observers;
 use App\Models\AuditLog;
 use Illuminate\Database\Eloquent\Model;
 
-// Registrado en los modelos administrativos (Users, Residents, Prescriptions,
-// Medications, Diseases, DiseaseResidentAssignment, MedicationSchedule) — no en
-// MedicationLog ni MedicationStockMovement, que ya tienen su propio responsable
-// (administered_by / created_by) y su propia auditoría de dominio.
+/**
+ * Escribe una fila en audit_logs cada vez que se crea/actualiza/borra/restaura
+ * un modelo administrativo observado. Se registra a mano con
+ * `static::observe(AuditableObserver::class)` en el boot() de cada modelo — hoy
+ * son User, Resident, Prescription, Medication, Disease,
+ * DiseaseResidentAssignment, ResidentVital y MedicationSchedule. A propósito NO
+ * observa MedicationLog ni MedicationStockMovement: esos ya tienen su propio
+ * responsable (administered_by / created_by) y su propia auditoría de dominio
+ * (son la actividad clínica normal, no una acción administrativa sobre el
+ * registro). Cualquier modelo nuevo que deba auditarse necesita agregar esa
+ * misma línea en su propio boot() — no hay un registro central en un Provider.
+ */
 class AuditableObserver
 {
     private const HIDDEN_FIELDS = ['password', 'remember_token'];

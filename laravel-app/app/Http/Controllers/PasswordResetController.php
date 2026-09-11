@@ -59,7 +59,13 @@ class PasswordResetController extends Controller
 
         // Anti-spam: no reenviar si el código anterior tiene menos de un minuto.
         // Sigue devolviendo la respuesta genérica para no revelar nada.
-        if ($existing && now()->diffInSeconds($existing->created_at) < self::RESEND_COOLDOWN_SECONDS) {
+        // El segundo argumento (absolute: true) es obligatorio aquí: en la versión
+        // de Carbon que usa este proyecto, diffInSeconds()/diffInMinutes() devuelven
+        // un valor CON SIGNO por defecto (negativo si la fecha comparada ya pasó,
+        // que es siempre el caso de created_at). Sin absolute:true, "menos de un
+        // minuto" (diff < 60) es válido para CUALQUIER número negativo, así que el
+        // cooldown nunca dejaba de bloquear el reenvío una vez creada la primera fila.
+        if ($existing && now()->diffInSeconds($existing->created_at, true) < self::RESEND_COOLDOWN_SECONDS) {
             return $genericResponse;
         }
 
@@ -121,7 +127,11 @@ class PasswordResetController extends Controller
         }
 
         // Vencido: se borra para que un código viejo no quede disponible.
-        if (now()->diffInMinutes($record->created_at) >= self::CODE_TTL_MINUTES) {
+        // absolute:true por la misma razón que en forgot(): sin él, diffInMinutes()
+        // da un número negativo para una fecha pasada y ">= 15" nunca es cierto, así
+        // que un código jamás vencía (bug confirmado con un código forzado a 16
+        // minutos de antigüedad: el backend lo aceptaba como válido).
+        if (now()->diffInMinutes($record->created_at, true) >= self::CODE_TTL_MINUTES) {
             DB::table('password_reset_tokens')->where('email', $email)->delete();
             throw $invalid();
         }

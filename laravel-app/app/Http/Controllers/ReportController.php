@@ -39,7 +39,14 @@ class ReportController extends Controller
             ->orderBy('scheduled_time')
             ->get();
 
-        $missingDoses = $this->findMissingDoses($prescriptions, $logs, $start, $end);
+        // Solo las prescripciones vigentes generan "dosis faltante": destroy() de
+        // PrescriptionController descontinúa con is_active=false SIN tocar end_date
+        // (no registra en qué fecha exacta se descontinuó), así que una prescripción
+        // inactiva sin end_date seguiría contando como vigente hasta $end si no se
+        // excluye aquí — inventando omisiones de un medicamento que ya se detuvo.
+        // $prescriptions (con las inactivas) se sigue mostrando completo en la tabla
+        // de medicación del PDF: eso sí debe reflejar el historial real.
+        $missingDoses = $this->findMissingDoses($prescriptions->where('is_active', true), $logs, $start, $end);
 
         $administeredLogs = $logs->where('status', 'administered');
         $administeredCount = $administeredLogs->count();

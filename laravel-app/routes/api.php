@@ -13,24 +13,11 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/password/forgot', [App\Http\Controllers\PasswordResetController::class, 'forgot']);
 Route::post('/password/reset', [App\Http\Controllers\PasswordResetController::class, 'reset']);
 
-//Route::get('users', [App\Http\Controllers\UserController::class, 'index']);
 // Rutas Protegidas (Requieren Token de Sanctum)
-Route::post('/seed', function () {
-    try {
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
-        $output = \Illuminate\Support\Facades\Artisan::output();
-        return response()->json([
-            'message' => 'Seeders executed',
-            'output' => $output
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json([
-            'message' => 'Seeder failed',
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ], 500);
-    }
-});
+// No hay endpoint HTTP para sembrar la base: uno público permitiría a
+// cualquiera recrear admin@hogar.com con la contraseña por defecto del
+// UserSeeder (que está en el repo). En producción se siembra por consola:
+//   railway ssh ... "php artisan migrate:fresh --seed --force"
 Route::middleware('auth:sanctum')->group(function () {
     
     // Auth endpoints adicionales
@@ -74,11 +61,30 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('prescriptions', App\Http\Controllers\PrescriptionController::class)->only(['store', 'update', 'destroy']);
     });
 
-    Route::apiResource('resident-images', App\Http\Controllers\ResidentImageController::class);
-    Route::apiResource('resident-documents', App\Http\Controllers\ResidentDocumentController::class);
-    Route::apiResource('resident-vitals', App\Http\Controllers\ResidentVitalController::class);
-    Route::apiResource('disease-resident-assignments', App\Http\Controllers\DiseaseResidentAssignmentController::class);
-    Route::apiResource('medication-alerts', App\Http\Controllers\MedicationAlertController::class);
+    // Fotos/documentos de residentes, signos vitales y asignación de condiciones:
+    // ver está abierto a cualquier rol autenticado (igual que residents/diseases);
+    // antes estos 4 recursos solo exigían auth:sanctum en todos los verbos, así
+    // que cualquier usuario autenticado (incluido Staff) podía crear/editar/borrar
+    // por API directa aunque el frontend ocultara esos botones. Encontrado en la
+    // ronda de QA de 2026-09.
+    Route::apiResource('resident-images', App\Http\Controllers\ResidentImageController::class)->only(['index', 'show']);
+    Route::apiResource('resident-documents', App\Http\Controllers\ResidentDocumentController::class)->only(['index', 'show']);
+    Route::apiResource('resident-vitals', App\Http\Controllers\ResidentVitalController::class)->only(['index', 'show']);
+    Route::apiResource('disease-resident-assignments', App\Http\Controllers\DiseaseResidentAssignmentController::class)->only(['index', 'show']);
+    Route::middleware('permission:edit_residents')->group(function () {
+        Route::apiResource('resident-images', App\Http\Controllers\ResidentImageController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('resident-documents', App\Http\Controllers\ResidentDocumentController::class)->only(['store', 'update', 'destroy']);
+    });
+    Route::middleware('permission:manage_medications')->group(function () {
+        Route::apiResource('resident-vitals', App\Http\Controllers\ResidentVitalController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('disease-resident-assignments', App\Http\Controllers\DiseaseResidentAssignmentController::class)->only(['store', 'update', 'destroy']);
+    });
+
+    // Sin store/destroy: esas filas solo las crean/borran los comandos programados
+    // por Eloquent directo (ver MedicationAlertController). update() solo permite
+    // marcar `read_at` — cualquier usuario autenticado puede leer/marcar leída su
+    // bandeja de notificaciones, es una bandeja compartida por todo el equipo.
+    Route::apiResource('medication-alerts', App\Http\Controllers\MedicationAlertController::class)->only(['index', 'show', 'update']);
     Route::apiResource('medication-schedules', App\Http\Controllers\MedicationScheduleController::class);
 
     // Marcar un medicamento como administrado/no administrado es la tarea clínica
