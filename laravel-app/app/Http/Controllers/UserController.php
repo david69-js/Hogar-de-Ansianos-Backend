@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
+use App\Models\Resident;
 use App\Models\User;
 
 /**
@@ -146,6 +147,13 @@ class UserController extends Controller
 
         $user->update($validated);
 
+        // syncRoles() no siempre refresca la relación ya cargada: se descarta
+        // para que hasRole() lea el rol nuevo.
+        $user->unsetRelation('roles');
+        if ($user->status === 'inactive' || !$user->hasRole('Enfermera')) {
+            $this->releaseAssignedResidents($user);
+        }
+
         return response()->json([
             'message' => 'Usuario actualizado exitosamente',
             'data'    => $user->load('roles'),
@@ -157,10 +165,24 @@ class UserController extends Controller
     {
         $user = User::findOrFail($id);
         $user->update(['status' => 'inactive']);
+        $this->releaseAssignedResidents($user);
 
         return response()->json([
             'message' => 'Usuario desactivado exitosamente',
         ], 200);
+    }
+
+    // Una enfermera desactivada (o que deja de tener ese rol) ya no puede ser
+    // responsable de nadie: sus residentes vuelven a "sin asignar" y sus alertas
+    // a todo el personal. Uno por uno —no un update() masivo— para que cada
+    // cambio quede en la bitácora (AuditableObserver).
+    private function releaseAssignedResidents(User $user): void
+    {
+        Resident::withTrashed()->where('assigned_nurse_id', $user->id)->get()
+            ->each(function (Resident $resident) {
+                $resident->assigned_nurse_id = null;
+                $resident->save();
+            });
     }
 }
 

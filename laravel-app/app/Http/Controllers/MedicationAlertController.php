@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\MedicationAlert;
+use App\Models\Resident;
+use App\Models\User;
 
 /**
  * Lectura (y marcar como leída) de las filas de aviso que generan los
@@ -17,10 +19,25 @@ use App\Models\MedicationAlert;
  */
 class MedicationAlertController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $items = MedicationAlert::all();
-        return response()->json($items, 200);
+        $user = $request->user();
+        $query = MedicationAlert::query();
+
+        // Bandeja de una enfermera: avisos de sus residentes asignados y de los
+        // que no tienen responsable (o cuya responsable está inactiva) — el mismo
+        // criterio que el push de CheckPendingMedications. Los avisos sin
+        // residente (inventario) no cambian. Admin y los demás roles ven todo.
+        if ($user->hasRole('Enfermera') && !$user->hasRole('Admin')) {
+            $visibleResidents = Resident::withTrashed()->select('id')->where(fn ($q) => $q
+                ->whereNull('assigned_nurse_id')
+                ->orWhere('assigned_nurse_id', $user->id)
+                ->orWhereIn('assigned_nurse_id', User::where('status', '!=', 'active')->select('id')));
+
+            $query->where(fn ($q) => $q->whereNull('resident_id')->orWhereIn('resident_id', $visibleResidents));
+        }
+
+        return response()->json($query->get(), 200);
     }
 
     public function show($id)

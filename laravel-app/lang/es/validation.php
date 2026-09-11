@@ -200,6 +200,8 @@ return [
         'emergency_contact_name' => 'nombre del contacto de emergencia',
         'emergency_contact_phone' => 'teléfono del contacto de emergencia',
         'emergency_contact_relation' => 'parentesco del contacto de emergencia',
+        'assigned_nurse_id' => 'enfermera responsable',
+        'user_id' => 'usuario',
         'notes' => 'observaciones',
         'image' => 'imagen',
         'image_type' => 'tipo de imagen',

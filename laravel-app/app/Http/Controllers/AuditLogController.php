@@ -81,7 +81,7 @@ class AuditLogController extends Controller
      */
     private function attachReferences(Collection $entries): void
     {
-        $userFields = ['user_id', 'administered_by', 'created_by', 'recorded_by', 'claimed_by', 'uploaded_by'];
+        $userFields = ['user_id', 'administered_by', 'created_by', 'recorded_by', 'claimed_by', 'uploaded_by', 'assigned_nurse_id'];
         $fields = array_merge($userFields, ['resident_id', 'medication_id', 'disease_id', 'prescription_id', 'schedule_id']);
 
         $decoded = $entries->mapWithKeys(fn (AuditLog $e) => [$e->id => array_merge(

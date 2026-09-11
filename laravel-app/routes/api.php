@@ -29,6 +29,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Personal/Usuarios es 100% administrativo: todos los verbos requieren manage_users.
     Route::middleware('permission:manage_users')->group(function () {
         Route::apiResource('users', App\Http\Controllers\UserController::class);
+        // Asignar la enfermera responsable de un residente: decisión de la
+        // administradora (manage_users), no de quien edita la ficha.
+        Route::put('residents/{id}/assigned-nurse', [App\Http\Controllers\ResidentController::class, 'assignNurse']);
     });
 
     // Residentes: ver está abierto a cualquier rol autenticado; crear/editar,

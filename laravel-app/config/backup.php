@@ -11,6 +11,12 @@ use Spatie\Backup\Tasks\Cleanup\Strategies\DefaultStrategy;
 use Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumAgeInDays;
 use Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes;
 
+// Carpeta por entorno: el scheduler de Docker local y el de Railway usan el
+// mismo bucket de R2, y con el mismo nombre se mezclaban los dumps de la BD
+// local con los de producción (y cada backup:clean borraba los del otro).
+// Producción conserva "backups" para no perder de vista los que ya existen.
+$backupName = env('BACKUP_NAME', env('APP_ENV') === 'production' ? 'backups' : 'backups-' . env('APP_ENV', 'local'));
+
 return [
 
     'backup' => [
@@ -18,8 +24,9 @@ return [
          * The name of this application. You can use this name to monitor
          * the backups.
          */
-        // Nombre de carpeta dentro del disco de destino: r2://backups/*.zip.
-        'name' => 'backups',
+        // Nombre de carpeta dentro del disco de destino: r2://backups/*.zip
+        // en producción (ver $backupName arriba).
+        'name' => $backupName,
 
         'source' => [
             'files' => [
@@ -304,7 +311,7 @@ return [
      */
     'monitor_backups' => [
         [
-            'name' => 'backups',
+            'name' => $backupName,
             'disks' => ['r2'],
             'health_checks' => [
                 // El backup corre una vez al día: 2 días de margen antes de avisar

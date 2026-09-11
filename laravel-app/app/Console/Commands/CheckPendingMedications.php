@@ -9,6 +9,7 @@ use App\Models\MedicationLog;
 use App\Models\MedicationSchedule;
 use App\Models\Prescription;
 use App\Models\Resident;
+use App\Models\User;
 use App\Services\FirebaseService;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
@@ -70,7 +71,18 @@ class CheckPendingMedications extends Command
         // extra. Por eso aquí no se sale temprano si no hay dispositivos
         // registrados — antes lo hacía, y entonces nadie veía ninguna alerta en
         // la app hasta que alguien activara el push en algún teléfono.
-        $tokens = DeviceToken::pluck('token')->all();
+        $tokensByUser = DeviceToken::all(['user_id', 'token'])
+            ->groupBy('user_id')
+            ->map(fn ($rows) => $rows->pluck('token')->all());
+        $tokens = $tokensByUser->flatten()->all();
+
+        // Destinatarios del push (asignación de enfermera responsable): si el
+        // residente tiene una enfermera activa asignada, el aviso va a ella y a
+        // Admin; si no tiene, a todo el personal, igual que antes de existir la
+        // asignación. La bandeja de la app sigue el mismo criterio (ver
+        // MedicationAlertController::index()).
+        $adminIds = User::role('Admin')->where('status', 'active')->pluck('id');
+        $activeNurseIds = User::role('Enfermera')->where('status', 'active')->pluck('id')->flip();
 
         // Firebase se resuelve aquí y no por inyección en handle(): si su
         // configuración falla (credenciales vacías, plantilla sin rellenar), la
@@ -173,11 +185,25 @@ class CheckPendingMedications extends Command
                 ],
             };
 
+            $recipients = $tokens;
+            if ($resident->assigned_nurse_id && $activeNurseIds->has($resident->assigned_nurse_id)) {
+                $assignedRecipients = $adminIds->concat([$resident->assigned_nurse_id])->unique()
+                    ->flatMap(fn ($userId) => $tokensByUser->get($userId, []))
+                    ->values()
+                    ->all();
+                // Si ni ella ni Admin activaron las notificaciones en ningún
+                // dispositivo, se avisa a todos: mejor un aviso de más que una
+                // dosis que nadie se enteró que estaba pendiente.
+                if (!empty($assignedRecipients)) {
+                    $recipients = $assignedRecipients;
+                }
+            }
+
             // Un fallo de envío no debe cortar el ciclo: los demás horarios
             // todavía necesitan su alerta.
             try {
                 $firebase->sendToTokens(
-                    $tokens,
+                    $recipients,
                     $title,
                     $body,
                     [

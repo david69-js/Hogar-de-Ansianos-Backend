@@ -19,6 +19,12 @@ Schedule::command('app:check-medication-stock')->dailyAt('07:00');
 // borrar el backup recién creado si "keep_all_backups_for_days" ya se cumplió justo
 // ese día; monitor corre al final y dispara la notificación por correo si algo
 // falló o el último backup quedó viejo/pesado.
-Schedule::command('backup:clean')->dailyAt('02:00');
-Schedule::command('backup:run --only-db')->dailyAt('02:15');
-Schedule::command('backup:monitor')->dailyAt('03:00');
+//
+// La salida de estos comandos iba a /dev/null: cuando fallaban, el log de
+// Railway solo decía "exit code [1]" sin el motivo. En el contenedor se manda
+// al stdout del proceso principal (schedule:work es el PID 1) para que el
+// error real aparezca en los logs; fuera de Docker, a storage/logs/backup.log.
+$backupOutput = is_writable('/proc/1/fd/1') ? '/proc/1/fd/1' : storage_path('logs/backup.log');
+Schedule::command('backup:clean')->dailyAt('02:00')->appendOutputTo($backupOutput);
+Schedule::command('backup:run --only-db')->dailyAt('02:15')->appendOutputTo($backupOutput);
+Schedule::command('backup:monitor')->dailyAt('03:00')->appendOutputTo($backupOutput);

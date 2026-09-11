@@ -29,7 +29,7 @@ class ReportController extends Controller
     // GET /api/reports/residents/{id}/medications
     public function residentMedicationPdf(Request $request, $id)
     {
-        $resident = Resident::findOrFail($id);
+        $resident = Resident::with('assignedNurse')->findOrFail($id);
         [$start, $end, $period] = $this->resolveDateRange($request);
 
         $prescriptions = $resident->prescriptions()
@@ -126,8 +126,13 @@ class ReportController extends Controller
             'reason' => $log->reason_for_omission,
         ])->values();
 
+        // Asignación vigente (no histórica: la tabla guarda solo la actual).
+        $assignedResidents = Resident::where('assigned_nurse_id', $nurse->id)
+            ->orderBy('first_name')->orderBy('last_name')->get();
+
         $pdf = Pdf::loadView('reports.nurse', [
             'nurse' => $nurse,
+            'assignedResidents' => $assignedResidents,
             'period' => $period,
             'start' => $start,
             'end' => $end,
@@ -317,7 +322,10 @@ class ReportController extends Controller
             ->where(fn ($q) => $q->whereNull('end_date')->orWhere('end_date', '>=', $today));
 
         $query = Resident::withTrashed()
-            ->with(['prescriptions' => fn ($q) => $activeScope($q)->with(['medication' => fn ($m) => $m->withTrashed()])])
+            ->with([
+                'prescriptions' => fn ($q) => $activeScope($q)->with(['medication' => fn ($m) => $m->withTrashed()]),
+                'assignedNurse',
+            ])
             ->orderBy('first_name')
             ->orderBy('last_name');
 

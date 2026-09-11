@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Resident;
+use App\Models\User;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * CRUD de residentes. Ver está abierto a cualquier rol autenticado;
@@ -15,18 +18,60 @@ use App\Models\Resident;
  */
 class ResidentController extends Controller
 {
+    // Solo lo necesario para mostrar a la enfermera responsable (no DPI,
+    // teléfono ni dirección del personal: Residentes lo ve cualquier rol).
+    private const NURSE_RELATION = 'assignedNurse:id,first_name,middle_name,last_name,second_last_name,profile_image,status';
+
     public function index()
     {
         // Incluye también los residentes desactivados (soft-deleted) para que el
         // frontend pueda mostrarlos con su estado y permitir reactivarlos.
-        $residents = Resident::withTrashed()->orderBy('first_name')->get();
+        $residents = Resident::withTrashed()->with(self::NURSE_RELATION)->orderBy('first_name')->get();
         return response()->json($residents, 200);
     }
 
     public function show($id)
     {
-        $resident = Resident::withTrashed()->findOrFail($id);
+        $resident = Resident::withTrashed()->with(self::NURSE_RELATION)->findOrFail($id);
         return response()->json($resident, 200);
+    }
+
+    // PUT /api/residents/{id}/assigned-nurse  {"user_id": 5 | null} — solo Admin.
+    //
+    // Asignación fija de la enfermera responsable. NO restringe quién administra:
+    // Inicio/Calendario la usan para mostrar primero "Mis residentes", y las
+    // alertas push van a ella y a Admin (CheckPendingMedications). El cambio
+    // queda en la bitácora vía AuditableObserver, como cualquier edición.
+    public function assignNurse(Request $request, $id)
+    {
+        // Sin withTrashed: no tiene sentido asignar a un residente desactivado.
+        $resident = Resident::findOrFail($id);
+
+        $data = $request->validate([
+            'user_id' => [
+                'present',
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where('status', 'active')->whereNull('deleted_at'),
+            ],
+        ], [
+            'user_id.exists' => 'La enfermera seleccionada no existe o está inactiva.',
+        ]);
+
+        $nurseId = $data['user_id'];
+        if ($nurseId !== null && !User::findOrFail($nurseId)->hasRole('Enfermera')) {
+            throw ValidationException::withMessages([
+                'user_id' => ['Solo se puede asignar a un usuario con rol Enfermera.'],
+            ]);
+        }
+
+        $resident->assigned_nurse_id = $nurseId;
+        $resident->save();
+
+        return response()->json([
+            'message' => $nurseId ? 'Enfermera responsable asignada' : 'Se quitó la enfermera responsable',
+            'resident' => $resident->load(self::NURSE_RELATION),
+        ], 200);
     }
 
     public function store(Request $request)

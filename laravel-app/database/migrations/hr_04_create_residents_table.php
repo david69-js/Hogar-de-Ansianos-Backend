@@ -33,6 +33,11 @@ return new class extends Migration {
             $table->string('emergency_contact_phone')->nullable();
             $table->string('emergency_contact_relation')->nullable();
             $table->text('notes')->nullable();
+            // Enfermera responsable (asignación fija que hace la administradora).
+            // Solo prioriza —cualquier enfermera puede seguir registrando dosis de
+            // cualquier residente— y decide a quién van las alertas push; ver
+            // ResidentController::assignNurse() y CheckPendingMedications.
+            $table->foreignId('assigned_nurse_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
             $table->softDeletes();
         });

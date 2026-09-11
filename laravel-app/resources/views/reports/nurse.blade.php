@@ -29,9 +29,32 @@
     <p class="meta">
         Generado el {{ $generatedAt->format('d/m/Y H:i') }} por {{ $generatedBy->full_name ?: $generatedBy->email }}.
         Este reporte solo incluye las dosis que {{ $nurse->full_name ?: 'esta persona' }} registró
-        personalmente (administradas u omitidas) — el sistema no asigna turnos por residente, así que no
-        se le pueden atribuir dosis que otra persona dejó sin registrar.
+        personalmente (administradas u omitidas). La asignación de residentes solo prioriza: cualquier
+        enfermera puede registrar dosis de cualquier residente, así que no se le atribuyen dosis que otra
+        persona dejó sin registrar.
     </p>
+
+    <h2>Residentes Asignados (a la fecha de generación)</h2>
+    @if($assignedResidents->isEmpty())
+        <p class="empty">No tiene residentes asignados.</p>
+    @else
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>Residente</th>
+                    <th>Habitación</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($assignedResidents as $assigned)
+                <tr>
+                    <td>{{ $assigned->full_name ?: '—' }}</td>
+                    <td>{{ $assigned->room_number ?: '—' }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
 
     <h2>Resumen del Periodo</h2>
     <div class="summary">

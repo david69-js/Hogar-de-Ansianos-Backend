@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Observers\AuditableObserver;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -58,6 +59,14 @@ class Resident extends Model
     public function prescriptions(): HasMany
     {
         return $this->hasMany(Prescription::class);
+    }
+
+    // Enfermera responsable. assigned_nurse_id queda fuera de $fillable a
+    // propósito: solo se cambia por ResidentController::assignNurse() (Admin),
+    // nunca por el PUT general del residente.
+    public function assignedNurse(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_nurse_id');
     }
 
     public function getFullNameAttribute(): string

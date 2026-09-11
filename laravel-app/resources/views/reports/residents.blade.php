@@ -37,7 +37,8 @@
     <p class="meta">
         Generado el {{ $generatedAt->format('d/m/Y H:i') }} por {{ $generatedBy->full_name ?: $generatedBy->email }}.
         Un tratamiento activo es una prescripción no descontinuada cuya fecha de fin no ha pasado.
-        El encargado es el contacto de emergencia registrado en la ficha del residente.
+        La enfermera responsable la asigna la administradora; el encargado es el contacto de emergencia
+        registrado en la ficha del residente.
     </p>
 
     <h2>Resumen</h2>
@@ -62,6 +63,7 @@
                     <th>Fecha de ingreso</th>
                     <th>Estado</th>
                     <th class="num">Tratamientos activos</th>
+                    <th>Enfermera responsable</th>
                     <th>Encargado</th>
                 </tr>
             </thead>
@@ -80,6 +82,7 @@
                     <td>{{ $resident->admission_date ? \Illuminate\Support\Carbon::parse($resident->admission_date)->format('d/m/Y') : '—' }}</td>
                     <td>{{ $resident->trashed() ? 'Inactivo' : 'Activo' }}</td>
                     <td class="num {{ $resident->prescriptions->isEmpty() && !$resident->trashed() ? 'none' : '' }}">{{ $resident->prescriptions->count() }}</td>
+                    <td>{{ $resident->assignedNurse?->full_name ?: 'Sin asignar' }}</td>
                     <td>
                         @if($resident->emergency_contact_name)
                             {{ $resident->emergency_contact_name }}@if($resident->emergency_contact_relation) ({{ $resident->emergency_contact_relation }})@endif

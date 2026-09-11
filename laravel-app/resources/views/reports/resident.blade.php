@@ -47,6 +47,9 @@
                 <td><strong>Habitación:</strong> {{ $resident->room_number ?: '—' }}</td>
                 <td><strong>Fecha de nacimiento:</strong> {{ $resident->birth_date ? \Illuminate\Support\Carbon::parse($resident->birth_date)->format('d/m/Y') : '—' }}</td>
             </tr>
+            <tr>
+                <td colspan="2"><strong>Enfermera responsable:</strong> {{ $resident->assignedNurse?->full_name ?: 'Sin asignar' }}</td>
+            </tr>
         </table>
     </div>
 
