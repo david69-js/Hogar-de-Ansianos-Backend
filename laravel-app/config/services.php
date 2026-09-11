@@ -18,8 +18,14 @@ return [
         'key' => env('POSTMARK_API_KEY'),
     ],
 
+    // Se usa el mailer "resend" (API HTTPS, puerto 443) y no SMTP porque
+    // Railway deshabilita el SMTP saliente en los planes Free/Trial/Hobby: la
+    // conexión a smtp.resend.com:587 hacía timeout en producción. En Resend la
+    // contraseña SMTP y la API key son el mismo valor "re_...", así que si no
+    // se define RESEND_API_KEY se reutiliza MAIL_PASSWORD en vez de duplicar
+    // el secreto en otra variable.
     'resend' => [
-        'key' => env('RESEND_API_KEY'),
+        'key' => env('RESEND_API_KEY', env('MAIL_PASSWORD')),
     ],
 
     'ses' => [
