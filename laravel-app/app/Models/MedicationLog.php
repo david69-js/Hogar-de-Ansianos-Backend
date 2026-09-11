@@ -23,6 +23,35 @@ class MedicationLog extends Model
 {
     protected $guarded = ['id'];
 
+    /**
+     * Tipos de incidencia (columna incident_type) y su etiqueta para pantallas y
+     * reportes. Son las categorías del instrumento de observación del anexo de
+     * la tesis ("Clasificación del evento observado"), más la reacción adversa
+     * que el Reporte Mensual de Incidencias lista como tipo propio.
+     */
+    public const INCIDENT_TYPES = [
+        'omision' => 'Omisión de dosis',
+        'medicamento_incorrecto' => 'Medicamento incorrecto',
+        'dosis_incorrecta' => 'Dosis incorrecta',
+        'horario_incorrecto' => 'Horario incorrecto',
+        'duplicidad' => 'Duplicidad de administración',
+        'registro_incompleto' => 'Registro incompleto',
+        'reaccion_adversa' => 'Reacción o malestar del residente',
+        'otro' => 'Otro',
+    ];
+
+    public function incidentLabel(): ?string
+    {
+        return $this->incident_type ? (self::INCIDENT_TYPES[$this->incident_type] ?? $this->incident_type) : null;
+    }
+
+    // Confirmaciones de dosis e incidencias en el registro de auditoría (ver el
+    // comentario de AuditableObserver sobre por qué este modelo sí se observa).
+    protected static function booted(): void
+    {
+        static::observe(\App\Observers\AuditableObserver::class);
+    }
+
     public function schedule(): BelongsTo
     {
         return $this->belongsTo(MedicationSchedule::class, 'schedule_id');

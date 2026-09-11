@@ -105,6 +105,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin y Enfermera tienen view_reports; Staff no.
     Route::middleware('permission:view_reports')->prefix('reports')->group(function () {
         Route::get('residents/{id}/medications', [App\Http\Controllers\ReportController::class, 'residentMedicationPdf']);
+        Route::get('incidents', [App\Http\Controllers\ReportController::class, 'incidentsPdf']);
+        Route::get('compliance', [App\Http\Controllers\ReportController::class, 'compliancePdf']);
+        Route::get('residents', [App\Http\Controllers\ReportController::class, 'residentsPdf']);
         Route::get('nurses/{id}/activity', [App\Http\Controllers\ReportController::class, 'nursePdf']);
     });
 

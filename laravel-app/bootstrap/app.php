@@ -34,6 +34,29 @@ return Application::configure(basePath: dirname(__DIR__))
         // petición no pide JSON explícitamente. Este render() se adelanta a
         // eso y siempre responde JSON 401, sin importar el header Accept.
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
+            return response()->json(['message' => 'Tu sesión expiró o no has iniciado sesión.'], 401);
+        });
+
+        // Las pantallas muestran el "message" de la API tal cual en un aviso; estos
+        // errores del framework y de Spatie venían en inglés. Solo se reemplaza el
+        // texto — el código HTTP sigue siendo el mismo.
+        $exceptions->render(function (\Spatie\Permission\Exceptions\UnauthorizedException $e, $request) {
+            return response()->json(['message' => 'No tienes permiso para realizar esta acción.'], 403);
+        });
+        $exceptions->render(function (\Illuminate\Http\Exceptions\ThrottleRequestsException $e, $request) {
+            return response()->json(
+                ['message' => 'Demasiados intentos. Espera un momento e inténtalo de nuevo.'],
+                429,
+                $e->getHeaders()
+            );
+        });
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
+            // findOrFail() sin registro llega aquí con "No query results for model
+            // [App\Models\...]", que además exponía el nombre interno del modelo.
+            // Un abort(404, 'mensaje') propio (ya en español) se respeta.
+            $message = $e->getPrevious() instanceof \Illuminate\Database\Eloquent\ModelNotFoundException || $e->getMessage() === ''
+                ? 'El registro solicitado no existe o fue eliminado.'
+                : $e->getMessage();
+            return response()->json(['message' => $message], 404);
         });
     })->create();

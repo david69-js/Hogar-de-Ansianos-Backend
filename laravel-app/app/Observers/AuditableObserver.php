@@ -10,12 +10,18 @@ use Illuminate\Database\Eloquent\Model;
  * un modelo administrativo observado. Se registra a mano con
  * `static::observe(AuditableObserver::class)` en el boot() de cada modelo — hoy
  * son User, Resident, Prescription, Medication, Disease,
- * DiseaseResidentAssignment, ResidentVital y MedicationSchedule. A propósito NO
- * observa MedicationLog ni MedicationStockMovement: esos ya tienen su propio
- * responsable (administered_by / created_by) y su propia auditoría de dominio
- * (son la actividad clínica normal, no una acción administrativa sobre el
- * registro). Cualquier modelo nuevo que deba auditarse necesita agregar esa
- * misma línea en su propio boot() — no hay un registro central en un Provider.
+ * DiseaseResidentAssignment, ResidentVital, MedicationSchedule y MedicationLog.
+ *
+ * MedicationLog se agregó porque el Reporte de Auditoría de Actividad de la
+ * tesis pide expresamente las confirmaciones de dosis y el registro de
+ * incidencias (crear un log = confirmar/omitir una dosis; actualizarlo con
+ * incident_type = reportar una incidencia). MedicationStockMovement sigue
+ * fuera: ya tiene created_by y es movimiento de inventario, no una acción que
+ * el reporte pida. Los inicios/cierres de sesión no pasan por aquí: los
+ * registra AuthController, porque no son cambios de un modelo.
+ *
+ * Cualquier modelo nuevo que deba auditarse necesita agregar la línea
+ * observe() en su propio booted() — no hay un registro central en un Provider.
  */
 class AuditableObserver
 {

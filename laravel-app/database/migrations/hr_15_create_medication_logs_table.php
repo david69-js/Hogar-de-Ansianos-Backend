@@ -24,10 +24,13 @@ return new class extends Migration {
             $table->dateTime('administered_time')->nullable();
             $table->string('status')->nullable();
             $table->integer('delay_minutes')->nullable();
-            // No se tipifica la incidencia de una dosis omitida: solo el motivo en
-            // texto libre. En la práctica el caso de "dosis incorrecta" es raro y no
-            // justificaba columnas propias (error_type/administered_dose).
             $table->text('reason_for_omission')->nullable();
+            // Clasificación de la incidencia (RF6 y Reporte Mensual de Incidencias de
+            // la tesis). Los valores válidos viven en MedicationLog::INCIDENT_TYPES y
+            // son las categorías del instrumento de observación del anexo. null = la
+            // dosis se administró sin incidencia; una dosis omitida siempre queda como
+            // "omision". El retraso no es un tipo: lo mide delay_minutes solo.
+            $table->string('incident_type')->nullable()->index();
             $table->text('notes')->nullable();
             $table->foreignId('claimed_by')->nullable()->constrained('users')->onDelete('set null');
             $table->dateTime('claimed_at')->nullable();

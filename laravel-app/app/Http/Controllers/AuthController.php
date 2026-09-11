@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -92,10 +93,15 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
-        
+
         // Actualizar último login
         $user->last_login_at = now();
         $user->save();
+
+        // El Reporte de Auditoría de la tesis pide los inicios de sesión. Se
+        // registra aquí a mano porque el cambio de last_login_at de arriba NO
+        // genera fila en AuditableObserver (está entre sus campos ignorados).
+        $this->recordSessionEvent('login', $user);
 
         return response()->json([
             'message' => 'Login exitoso',
@@ -112,9 +118,23 @@ class AuthController extends Controller
         // Borra el token actual
         $request->user()->currentAccessToken()->delete();
 
+        $this->recordSessionEvent('logout', $request->user());
+
         return response()->json([
             'message' => 'Cierre de sesión exitoso'
         ], 200);
+    }
+
+    // Fila de auditoría para inicio/cierre de sesión. No pasa por
+    // AuditableObserver porque no es un cambio de datos del modelo, es un evento.
+    private function recordSessionEvent(string $action, User $user): void
+    {
+        AuditLog::create([
+            'user_id' => $user->id,
+            'action' => $action,
+            'table_name' => 'users',
+            'record_id' => $user->id,
+        ]);
     }
 
     public function me(Request $request)

@@ -2,20 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Medication;
 use App\Models\MedicationLog;
+use App\Models\Prescription;
 use App\Models\Resident;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 
 /**
- * Genera los dos reportes en PDF (dompdf): por residente (medicación,
- * omisiones y responsable de cada dosis) y por enfermera (a quién atendió, a
- * quién omitió). Ambos aceptan el mismo filtro de periodo — día/semana/mes/año
- * o rango — resuelto en resolveDateRange(). Protegido por `view_reports`
- * (Admin y Enfermera); nursePdf() además exige que solo Admin pueda pedir el
+ * Genera los reportes en PDF (dompdf): por residente (medicación, omisiones y
+ * responsable de cada dosis), por enfermera (a quién atendió, a quién omitió),
+ * de incidencias, de cumplimiento (todo el hogar) y el listado de residentes con
+ * sus tratamientos activos. Todos menos el listado aceptan el mismo filtro de
+ * periodo — día/semana/mes/año o rango — resuelto en resolveDateRange().
+ * Protegido por `view_reports` (Admin y Enfermera); nursePdf() además exige que
+ * solo Admin pueda pedir el
  * reporte de otra persona (una enfermera solo ve el suyo). No persiste nada:
  * cada llamada arma el PDF al vuelo y lo devuelve como stream.
  */
@@ -141,6 +146,233 @@ class ReportController extends Controller
         return $pdf->stream("reporte-enfermeria-{$nurse->id}.pdf");
     }
 
+    // GET /api/reports/incidents?period=month&date=...&[resident_id]&[incident_type]
+    //
+    // Reporte Mensual de Incidencias (Errores y Omisiones) de la tesis: todas las
+    // incidencias del periodo clasificadas por tipo, con filtros opcionales por
+    // residente y por tipo. Acepta cualquier periodo (no solo mes) reutilizando
+    // resolveDateRange(), igual que los otros dos reportes.
+    public function incidentsPdf(Request $request)
+    {
+        [$start, $end, $period] = $this->resolveDateRange($request);
+
+        $filters = $request->validate([
+            'resident_id' => 'nullable|exists:residents,id',
+            'incident_type' => ['nullable', Rule::in(array_keys(MedicationLog::INCIDENT_TYPES))],
+        ]);
+
+        $query = MedicationLog::query()
+            // Una omisión registrada antes de que existiera incident_type también
+            // es una incidencia: se incluye por status aunque la columna esté vacía.
+            ->where(fn ($q) => $q->whereNotNull('incident_type')->orWhere('status', 'missed'))
+            ->whereBetween('scheduled_time', [$start, $end])
+            ->with(['schedule.prescription.resident', 'schedule.prescription.medication', 'administeredBy'])
+            ->orderBy('scheduled_time');
+
+        if (!empty($filters['incident_type'])) {
+            $type = $filters['incident_type'];
+            $query->where(fn ($q) => $type === 'omision'
+                ? $q->where('incident_type', 'omision')->orWhere('status', 'missed')
+                : $q->where('incident_type', $type));
+        }
+
+        if (!empty($filters['resident_id'])) {
+            $query->whereHas('schedule.prescription', fn ($q) => $q->where('resident_id', $filters['resident_id']));
+        }
+
+        $incidents = $query->get()->map(function (MedicationLog $log) {
+            $type = $log->incident_type ?? 'omision';
+            $prescription = $log->schedule?->prescription;
+
+            return [
+                'type' => $type,
+                'type_label' => MedicationLog::INCIDENT_TYPES[$type] ?? $type,
+                'scheduled_at' => $log->scheduled_time,
+                // "Hora registrada": cuándo se aplicó la dosis o, si se omitió,
+                // cuándo se dejó constancia de la omisión.
+                'registered_at' => $log->administered_time ?? $log->created_at,
+                'resident' => $prescription?->resident,
+                'medication' => trim(($prescription?->medication?->name ?? '') . ' ' . ($prescription?->dosage ?? '')),
+                'description' => $log->status === 'missed' ? $log->reason_for_omission : $log->notes,
+                'registered_by' => $log->administeredBy,
+            ];
+        });
+
+        $byType = collect(MedicationLog::INCIDENT_TYPES)
+            ->map(fn ($label, $key) => ['label' => $label, 'count' => $incidents->where('type', $key)->count()])
+            ->values();
+
+        $pdf = Pdf::loadView('reports.incidents', [
+            'period' => $period,
+            'start' => $start,
+            'end' => $end,
+            'incidents' => $incidents,
+            'byType' => $byType,
+            'filterResident' => !empty($filters['resident_id']) ? Resident::find($filters['resident_id']) : null,
+            'filterTypeLabel' => !empty($filters['incident_type']) ? MedicationLog::INCIDENT_TYPES[$filters['incident_type']] : null,
+            'generatedBy' => $request->user(),
+            'generatedAt' => now(),
+        ]);
+
+        return $pdf->stream('reporte-incidencias.pdf');
+    }
+
+    // GET /api/reports/compliance?period=month&date=...&[resident_id]&[medication_id]
+    //
+    // Reporte Mensual de Administraciones y Cumplimiento de la tesis: programadas
+    // vs. realizadas, a tiempo / con retraso / omitidas y % de cumplimiento,
+    // consolidado por residente y por medicamento. Mismas reglas de conteo que el
+    // Reporte de Residente (programadas = administradas + omitidas + sin registro),
+    // pero para todo el hogar a la vez.
+    public function compliancePdf(Request $request)
+    {
+        [$start, $end, $period] = $this->resolveDateRange($request);
+
+        $filters = $request->validate([
+            'resident_id' => 'nullable|exists:residents,id',
+            'medication_id' => 'nullable|exists:medications,id',
+        ]);
+
+        $scope = function ($q) use ($filters) {
+            if (!empty($filters['resident_id'])) {
+                $q->where('resident_id', $filters['resident_id']);
+            }
+            if (!empty($filters['medication_id'])) {
+                $q->where('medication_id', $filters['medication_id']);
+            }
+        };
+
+        // Solo vigentes para "sin registro" (ver el comentario equivalente en
+        // residentMedicationPdf sobre las descontinuadas sin end_date).
+        $prescriptions = Prescription::with(['medication', 'resident', 'schedules'])
+            ->where($scope)
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->whereNull('start_date')->orWhere('start_date', '<=', $end))
+            ->where(fn ($q) => $q->whereNull('end_date')->orWhere('end_date', '>=', $start))
+            ->get();
+
+        $logs = MedicationLog::whereHas('schedule.prescription', $scope)
+            ->whereBetween('scheduled_time', [$start, $end])
+            ->with(['schedule.prescription.medication', 'schedule.prescription.resident'])
+            ->get();
+
+        $missingDoses = $this->findMissingDoses($prescriptions, $logs, $start, $end);
+
+        $residentNames = $prescriptions->pluck('resident')
+            ->merge($logs->map(fn ($log) => $log->schedule?->prescription?->resident))
+            ->filter()
+            ->mapWithKeys(fn (Resident $r) => [$r->id => $r->full_name . ($r->trashed() ? ' (inactivo)' : '')]);
+
+        $medicationNames = $prescriptions->pluck('medication')
+            ->merge($logs->map(fn ($log) => $log->schedule?->prescription?->medication))
+            ->filter()
+            ->mapWithKeys(fn ($m) => [$m->id => $m->name]);
+
+        $group = function (string $key, Collection $names) use ($logs, $missingDoses) {
+            $logsByKey = $logs->groupBy(fn ($log) => $log->schedule?->prescription?->{$key});
+            $missingByKey = $missingDoses->groupBy($key);
+
+            return $logsByKey->keys()->merge($missingByKey->keys())
+                ->filter(fn ($id) => $id !== null && $id !== '')
+                ->unique()
+                ->map(fn ($id) => ['name' => $names[$id] ?? "#{$id}"] + $this->tally(
+                    $logsByKey->get($id, collect()),
+                    $missingByKey->get($id, collect())
+                ))
+                ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values();
+        };
+
+        $pdf = Pdf::loadView('reports.compliance', [
+            'period' => $period,
+            'start' => $start,
+            'end' => $end,
+            'summary' => $this->tally($logs, $missingDoses),
+            'byResident' => $group('resident_id', $residentNames),
+            'byMedication' => $group('medication_id', $medicationNames),
+            'filterResident' => !empty($filters['resident_id']) ? Resident::withTrashed()->find($filters['resident_id']) : null,
+            'filterMedication' => !empty($filters['medication_id']) ? Medication::withTrashed()->find($filters['medication_id']) : null,
+            'generatedBy' => $request->user(),
+            'generatedAt' => now(),
+        ]);
+
+        return $pdf->stream('reporte-cumplimiento.pdf');
+    }
+
+    // GET /api/reports/residents?[status=active|inactive]&[with_treatment=yes|no]
+    //
+    // Listado General de Residentes y Tratamientos Activos de la tesis. No
+    // depende de un periodo: es la foto de hoy. "Tratamiento activo" = misma
+    // regla que las alertas (CheckPendingMedications): prescripción con
+    // is_active y sin end_date vencida.
+    public function residentsPdf(Request $request)
+    {
+        $filters = $request->validate([
+            'status' => 'nullable|in:active,inactive',
+            'with_treatment' => 'nullable|in:yes,no',
+        ]);
+
+        $today = now()->toDateString();
+        $activeScope = fn ($q) => $q->where('is_active', true)
+            ->where(fn ($q) => $q->whereNull('end_date')->orWhere('end_date', '>=', $today));
+
+        $query = Resident::withTrashed()
+            ->with(['prescriptions' => fn ($q) => $activeScope($q)->with(['medication' => fn ($m) => $m->withTrashed()])])
+            ->orderBy('first_name')
+            ->orderBy('last_name');
+
+        if (($filters['status'] ?? null) === 'active') {
+            $query->whereNull('deleted_at');
+        } elseif (($filters['status'] ?? null) === 'inactive') {
+            $query->whereNotNull('deleted_at');
+        }
+
+        if (($filters['with_treatment'] ?? null) === 'yes') {
+            $query->whereHas('prescriptions', $activeScope);
+        } elseif (($filters['with_treatment'] ?? null) === 'no') {
+            $query->whereDoesntHave('prescriptions', $activeScope);
+        }
+
+        $residents = $query->get();
+
+        $pdf = Pdf::loadView('reports.residents', [
+            'residents' => $residents,
+            'summary' => [
+                'total' => $residents->count(),
+                'active' => $residents->whereNull('deleted_at')->count(),
+                'inactive' => $residents->whereNotNull('deleted_at')->count(),
+                'withTreatment' => $residents->filter(fn ($r) => $r->prescriptions->isNotEmpty())->count(),
+            ],
+            'filterStatus' => $filters['status'] ?? null,
+            'filterTreatment' => $filters['with_treatment'] ?? null,
+            'generatedBy' => $request->user(),
+            'generatedAt' => now(),
+        ]);
+
+        return $pdf->stream('listado-residentes.pdf');
+    }
+
+    // Indicadores de cumplimiento de un conjunto de dosis (registradas + sin
+    // registro). "A tiempo" = delay_minutes <= 0, igual que en residentMedicationPdf.
+    private function tally(Collection $logs, Collection $missing): array
+    {
+        $administered = $logs->where('status', 'administered');
+        $administeredCount = $administered->count();
+        $missedCount = $logs->where('status', 'missed')->count();
+        $expected = $administeredCount + $missedCount + $missing->count();
+        $onTime = $administered->where('delay_minutes', '<=', 0)->count();
+
+        return [
+            'expected' => $expected,
+            'administered' => $administeredCount,
+            'onTime' => $onTime,
+            'late' => $administeredCount - $onTime,
+            'missed' => $missedCount,
+            'missing' => $missing->count(),
+            'adherence' => $expected > 0 ? round($administeredCount / $expected * 100, 1) : null,
+        ];
+    }
+
     // Traduce period+date (o from/to) a un rango [inicio, fin] concreto en Carbon.
     private function resolveDateRange(Request $request): array
     {
@@ -190,6 +422,14 @@ class ReportController extends Controller
                 ? Carbon::parse($prescription->end_date)->endOfDay()
                 : $end->copy();
 
+            // Un residente desactivado (egreso, fallecimiento) deja de recibir
+            // dosis desde ese momento: sin este tope, sus prescripciones que nadie
+            // descontinuó seguirían sumando "dosis sin registro" para siempre.
+            $deactivatedAt = $prescription->resident?->deleted_at;
+            if ($deactivatedAt && $prescriptionEnd->greaterThan($deactivatedAt)) {
+                $prescriptionEnd = Carbon::parse($deactivatedAt);
+            }
+
             $rangeStart = $start->greaterThan($prescriptionStart) ? $start->copy() : $prescriptionStart;
             $rangeEnd = $end->lessThan($prescriptionEnd) ? $end->copy() : $prescriptionEnd;
 
@@ -211,6 +451,8 @@ class ReportController extends Controller
                                 'scheduled_at' => $scheduledAt->copy(),
                                 'medication' => $prescription->medication?->name,
                                 'dosage' => $prescription->dosage,
+                                'resident_id' => $prescription->resident_id,
+                                'medication_id' => $prescription->medication_id,
                             ]);
                         }
                     }

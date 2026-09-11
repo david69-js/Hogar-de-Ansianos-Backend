@@ -29,9 +29,12 @@ class Prescription extends Model
 
     protected $guarded = ['id'];
 
+    // withTrashed: desactivar un residente es borrado lógico, pero su historial
+    // sigue siendo suyo — sin esto los reportes de Enfermería e Incidencias
+    // mostraban "Residente eliminado" en las dosis que se le dieron antes.
     public function resident(): BelongsTo
     {
-        return $this->belongsTo(Resident::class);
+        return $this->belongsTo(Resident::class)->withTrashed();
     }
 
     public function medication(): BelongsTo

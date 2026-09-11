@@ -8,9 +8,12 @@ use App\Models\MedicationLog;
 use App\Models\MedicationSchedule;
 use App\Models\MedicationStockMovement;
 use App\Models\Prescription;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * El kardex real de administración de medicamentos (ver MedicationLog).
@@ -27,24 +30,60 @@ use Illuminate\Support\Facades\DB;
  */
 class MedicationLogController extends Controller
 {
+    /** Rango máximo (en días) que acepta index(). Un año cubre el reporte anual. */
+    private const MAX_RANGE_DAYS = 366;
+
     // Sin filtros, esta tabla crece sin límite (una fila por cada dosis
     // administrada u omitida) y Calendario/Dashboard/Historial la bajaban
     // completa para luego filtrar en el cliente. `date` (un día) y `from`/`to`
     // (rango) dejan que cada pantalla pida solo lo que va a mostrar.
     public function index(Request $request)
     {
+        $filters = $request->validate([
+            'date' => 'nullable|date',
+            'from' => 'nullable|date|required_with:to',
+            'to' => 'nullable|date|required_with:from|after_or_equal:from',
+        ]);
+
         $query = MedicationLog::query();
 
-        if ($request->filled('date')) {
-            $query->whereDate('scheduled_time', $request->query('date'));
-        } elseif ($request->filled('from') && $request->filled('to')) {
-            $query->whereBetween('scheduled_time', [
-                $request->query('from') . ' 00:00:00',
-                $request->query('to') . ' 23:59:59',
-            ]);
+        if (!empty($filters['date'])) {
+            $query->whereDate('scheduled_time', $filters['date']);
+        } else {
+            // RNF4: sin filtro, antes devolvía la tabla completa — es la que más
+            // crece (una fila por dosis), y la medición de MANUAL_TECNICO.md dio
+            // 5.4 MB con 90 días de datos. Ahora siempre hay un rango: por defecto
+            // los últimos 30 días (lo que ya pedía como máximo Historial) y nunca
+            // más de un año.
+            $from = Carbon::parse($filters['from'] ?? now()->subDays(29)->toDateString())->startOfDay();
+            $to = Carbon::parse($filters['to'] ?? now()->toDateString())->endOfDay();
+
+            if ($from->diffInDays($to, true) > self::MAX_RANGE_DAYS) {
+                throw ValidationException::withMessages([
+                    'from' => ['El rango no puede superar ' . self::MAX_RANGE_DAYS . ' días.'],
+                ]);
+            }
+
+            $query->whereBetween('scheduled_time', [$from, $to]);
         }
 
         $items = $query->get();
+
+        // Nombre de quien registró cada dosis (trazabilidad, RF7). Historial lo
+        // resolvía pidiendo GET /users, pero esa ruta exige manage_users: una
+        // Enfermera recibía 403 y nunca veía quién administró. Se manda solo el
+        // nombre, no la lista de personal (que trae DPI, teléfono y dirección).
+        // Va como campo aparte y no con with('administeredBy'): Laravel
+        // serializaría esa relación como "administered_by" y pisaría el id
+        // numérico que ya usan las pantallas.
+        $names = User::withTrashed()
+            ->whereIn('id', $items->pluck('administered_by')->filter()->unique())
+            ->get(['id', 'first_name', 'last_name'])
+            ->mapWithKeys(fn (User $u) => [$u->id => trim("{$u->first_name} {$u->last_name}")]);
+        $items->each(fn (MedicationLog $log) => $log->setAttribute(
+            'administered_by_name',
+            $names[$log->administered_by] ?? null
+        ));
         return response()->json($items, 200);
     }
 
@@ -64,7 +103,10 @@ class MedicationLogController extends Controller
             'reason_for_omission' => ['nullable', 'string', 'required_if:status,missed'],
             'administered_by' => ['nullable', 'exists:users,id'],
             'notes' => ['nullable', 'string'],
+            'incident_type' => ['nullable', Rule::in(array_keys(MedicationLog::INCIDENT_TYPES))],
         ]);
+
+        $data['incident_type'] = $this->resolveIncidentType($data['status'], $data['incident_type'] ?? null);
 
         // Si el cliente no manda quién lo hizo, se asume el usuario autenticado — así el
         // responsable de cada dosis (para los reportes) siempre queda identificado.
@@ -153,7 +195,17 @@ class MedicationLogController extends Controller
             'reason_for_omission' => ['nullable', 'string'],
             'administered_by' => ['nullable', 'exists:users,id'],
             'notes' => ['nullable', 'string'],
+            // Permite reportar una incidencia después del hecho (p. ej. una reacción
+            // que se nota horas más tarde) sobre una dosis ya registrada.
+            'incident_type' => ['sometimes', 'nullable', Rule::in(array_keys(MedicationLog::INCIDENT_TYPES))],
         ]);
+
+        if (array_key_exists('status', $data) || array_key_exists('incident_type', $data)) {
+            $data['incident_type'] = $this->resolveIncidentType(
+                $data['status'] ?? $item->status,
+                array_key_exists('incident_type', $data) ? $data['incident_type'] : $item->incident_type
+            );
+        }
 
         $item->update($data);
 
@@ -170,5 +222,26 @@ class MedicationLogController extends Controller
         return response()->json([
             'message' => 'Eliminado exitosamente'
         ], 200);
+    }
+
+    /**
+     * Una dosis omitida es, por definición, una incidencia de tipo "omision":
+     * se fija aquí para que el Reporte Mensual de Incidencias la cuente aunque el
+     * cliente no mande el tipo. Una dosis administrada puede traer cualquier otro
+     * tipo (o ninguno), pero nunca "omision" — sería decir que se dio y no se dio.
+     */
+    private function resolveIncidentType(string $status, ?string $incidentType): ?string
+    {
+        if ($status === 'missed') {
+            return 'omision';
+        }
+
+        if ($incidentType === 'omision') {
+            throw ValidationException::withMessages([
+                'incident_type' => ['Una dosis administrada no puede clasificarse como omisión.'],
+            ]);
+        }
+
+        return $incidentType;
     }
 }
