@@ -29,3 +29,6 @@ Homestead.json
 .phpactor.json
 auth.json
 /revision-pg2
+# Nunca versionar archivos de entorno (cualquier variante)
+.env*
+!.env.example
