@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Models\ResidentImage;
@@ -40,11 +41,11 @@ class ResidentImageController extends Controller
     {
         $validated = $request->validate([
             'resident_id' => 'required|integer|exists:residents,id',
-            'image' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'image' => 'required|image|mimes:jpg,jpeg,png,webp|max:12288',
             'image_type' => 'nullable|string|max:255',
         ]);
 
-        $path = $request->file('image')->store('resident-images', $this->imageDisk());
+        $path = ImageOptimizer::store($request->file('image'), 'resident-images', $this->imageDisk());
 
         $item = ResidentImage::create([
             'resident_id' => $validated['resident_id'],
@@ -64,13 +65,13 @@ class ResidentImageController extends Controller
         $item = ResidentImage::findOrFail($id);
 
         $validated = $request->validate([
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:12288',
             'image_type' => 'nullable|string|max:255',
         ]);
 
         if ($request->hasFile('image')) {
             Storage::disk($this->imageDisk())->delete($item->image_path);
-            $validated['image_path'] = $request->file('image')->store('resident-images', $this->imageDisk());
+            $validated['image_path'] = ImageOptimizer::store($request->file('image'), 'resident-images', $this->imageDisk());
         }
 
         $item->update($validated);

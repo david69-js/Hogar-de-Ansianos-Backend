@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -165,7 +166,7 @@ class AuthController extends Controller
             'address' => 'sometimes|nullable|string',
             'emergency_contact' => 'sometimes|nullable|string',
             'emergency_phone' => 'sometimes|nullable|string',
-            'profile_image' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'profile_image' => 'sometimes|image|mimes:jpg,jpeg,png,webp|max:12288',
         ]);
 
         if (isset($validatedData['password'])) {
@@ -176,7 +177,7 @@ class AuthController extends Controller
             if ($user->profile_image) {
                 Storage::disk($this->imageDisk())->delete($user->profile_image);
             }
-            $validatedData['profile_image'] = $request->file('profile_image')->store('profile-images', $this->imageDisk());
+            $validatedData['profile_image'] = ImageOptimizer::store($request->file('profile_image'), 'profile-images', $this->imageDisk(), 600, 85);
         }
 
         $user->update($validatedData);

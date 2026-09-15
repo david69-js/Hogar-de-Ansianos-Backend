@@ -22,6 +22,10 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg
 # ext-zip: requerida por spatie/laravel-backup para comprimir el dump de la BD.
 RUN docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd zip
 
+# Límites de subida (ver php-uploads.ini): PHP por defecto rechaza cualquier
+# archivo de más de 2M antes de que Laravel lo vea.
+COPY php-uploads.ini $PHP_INI_DIR/conf.d/zz-uploads.ini
+
 # Install Composer
 COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1

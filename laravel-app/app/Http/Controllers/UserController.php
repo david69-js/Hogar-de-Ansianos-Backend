@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -56,14 +57,14 @@ class UserController extends Controller
             'position'   => 'nullable|string|max:255',
             'hire_date'  => 'nullable|date',
             'address'    => 'nullable|string|max:500',
-            'profile_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'profile_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:12288',
             'status'     => 'nullable|string|in:active,inactive',
             'emergency_contact' => 'nullable|string|max:255',
             'emergency_phone'   => 'nullable|string|max:20',
         ]);
 
         if ($request->hasFile('profile_image')) {
-            $validated['profile_image'] = $request->file('profile_image')->store('profile-images', $this->imageDisk());
+            $validated['profile_image'] = ImageOptimizer::store($request->file('profile_image'), 'profile-images', $this->imageDisk(), 600, 85);
         }
 
         $user = User::create([
@@ -118,7 +119,7 @@ class UserController extends Controller
             'position'   => 'nullable|string|max:255',
             'hire_date'  => 'nullable|date',
             'address'    => 'nullable|string|max:500',
-            'profile_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'profile_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:12288',
             'status'     => 'sometimes|in:active,inactive',
             'emergency_contact' => 'nullable|string|max:255',
             'emergency_phone'   => 'nullable|string|max:20',
@@ -133,7 +134,7 @@ class UserController extends Controller
             if ($user->profile_image) {
                 Storage::disk($this->imageDisk())->delete($user->profile_image);
             }
-            $validated['profile_image'] = $request->file('profile_image')->store('profile-images', $this->imageDisk());
+            $validated['profile_image'] = ImageOptimizer::store($request->file('profile_image'), 'profile-images', $this->imageDisk(), 600, 85);
         }
 
         // Cambiar rol en Spatie si viene
