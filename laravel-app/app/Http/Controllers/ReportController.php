@@ -93,8 +93,9 @@ class ReportController extends Controller
     {
         $nurse = User::findOrFail($id);
 
-        // El permiso view_reports no distingue "el mío" de "el de cualquiera": solo Admin
-        // puede pedir el reporte de otra persona, una enfermera solo puede ver el propio.
+        // Hoy la ruta ya exige view_management_reports (solo Admin), pero el resguardo se
+        // mantiene: si ese permiso se le diera a una supervisora que no es Admin, seguiría
+        // sin poder pedir el reporte de otra persona, solo el propio.
         if (!$request->user()->hasRole('Admin') && (int) $request->user()->id !== (int) $id) {
             abort(403, 'No autorizado para ver el reporte de otro usuario.');
         }

@@ -104,13 +104,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('medication-stock-movements', App\Http\Controllers\MedicationStockMovementController::class)->only(['store']);
     });
 
-    // Reportes en PDF: por residente (medicación/omisiones) y por enfermera (actividad).
+    // Reportes de consulta clínica: la enfermera los necesita para su propio trabajo
+    // (qué toma el residente, qué se omitió, quiénes están internados).
     // Admin y Enfermera tienen view_reports; Staff no.
     Route::middleware('permission:view_reports')->prefix('reports')->group(function () {
         Route::get('residents/{id}/medications', [App\Http\Controllers\ReportController::class, 'residentMedicationPdf']);
         Route::get('incidents', [App\Http\Controllers\ReportController::class, 'incidentsPdf']);
-        Route::get('compliance', [App\Http\Controllers\ReportController::class, 'compliancePdf']);
         Route::get('residents', [App\Http\Controllers\ReportController::class, 'residentsPdf']);
+    });
+
+    // Reportes de supervisión: miden el desempeño del personal (actividad y omisiones
+    // por enfermera, cumplimiento del tratamiento). Son para quien supervisa, no para
+    // la enfermera supervisada, así que van con su propio permiso, solo de Admin.
+    Route::middleware('permission:view_management_reports')->prefix('reports')->group(function () {
+        Route::get('compliance', [App\Http\Controllers\ReportController::class, 'compliancePdf']);
         Route::get('nurses/{id}/activity', [App\Http\Controllers\ReportController::class, 'nursePdf']);
     });
 

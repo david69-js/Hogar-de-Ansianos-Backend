@@ -24,6 +24,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'manage_medications',
             'administer_medications',
             'view_reports',
+            // Reportes de supervisión (enfermería y cumplimiento): miden el desempeño
+            // del personal, así que se separan de view_reports para que la enfermera
+            // no vea su propia evaluación ni la de sus compañeras.
+            'view_management_reports',
             'manage_inventory',
         ];
 
@@ -44,9 +48,10 @@ class RolesAndPermissionsSeeder extends Seeder
         // Marca medicamentos como administrados/no administrados (su tarea principal) y
         // además registra las prescripciones y sus horarios (manage_medications), porque
         // es quien traslada la indicación médica al sistema. No crea ni edita residentes,
-        // no gestiona personal y no registra movimientos de inventario.
+        // no gestiona personal y no registra movimientos de inventario. Tampoco ve los
+        // reportes de supervisión (view_management_reports): son sobre su desempeño.
         $roleNurse = Role::firstOrCreate(['name' => 'Enfermera', 'guard_name' => 'web']);
-        $roleNurse->givePermissionTo([
+        $roleNurse->syncPermissions([
              'view_residents', 'administer_medications', 'manage_medications', 'view_reports'
         ]);
 
