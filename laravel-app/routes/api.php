@@ -5,13 +5,18 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 
 // Rutas Públicas (No requieren Token)
-Route::post('/login', [AuthController::class, 'login']);
+// throttle: los límites están definidos en AppServiceProvider::registerRateLimiters().
+// Se cuentan por cuenta + IP para que el error de una persona no bloquee al resto
+// del hogar, que sale por una sola conexión.
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
 // Recuperación de contraseña: públicas por necesidad — son para quien no puede
 // entrar y por tanto no tiene token. La protección va dentro del controlador
 // (respuesta genérica, código hasheado, vencimiento, límite de intentos).
-Route::post('/password/forgot', [App\Http\Controllers\PasswordResetController::class, 'forgot']);
-Route::post('/password/reset', [App\Http\Controllers\PasswordResetController::class, 'reset']);
+Route::post('/password/forgot', [App\Http\Controllers\PasswordResetController::class, 'forgot'])
+    ->middleware('throttle:password-forgot');
+Route::post('/password/reset', [App\Http\Controllers\PasswordResetController::class, 'reset'])
+    ->middleware('throttle:password-reset');
 
 // Rutas Protegidas (Requieren Token de Sanctum)
 // No hay endpoint HTTP para sembrar la base: uno público permitiría a
@@ -44,8 +49,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('residents', App\Http\Controllers\ResidentController::class)->only(['destroy']);
         Route::post('residents/{id}/restore', [App\Http\Controllers\ResidentController::class, 'restore']);
     });
-
-    Route::apiResource('jobs', App\Http\Controllers\JobController::class);
 
     // Auditoría: solo lectura y solo Admin. Las filas las genera AuditableObserver,
     // nunca un cliente HTTP — por eso no hay store/update/destroy.
