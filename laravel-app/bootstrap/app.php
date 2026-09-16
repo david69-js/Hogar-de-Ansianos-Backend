@@ -26,6 +26,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // route('login') y explote con RouteNotFoundException — 500 genérico
         // en vez del 401 real.
         $middleware->redirectGuestsTo(fn () => null);
+
+        // La app nunca recibe tráfico directo: adelante siempre hay un proxy
+        // (el de Railway hoy, nginx si se pasa a servidor propio). Sin esto
+        // Laravel cree que la petición llegó por http y desde la IP del proxy,
+        // así que los enlaces absolutos salen en http y los límites de intentos
+        // contarían a TODOS los usuarios como una sola IP — la del proxy.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Con redirectGuestsTo(null) de arriba, Authenticate ya no explota,

@@ -81,12 +81,16 @@ if [ "${CACHE_STORE:-database}" = "database" ] && [ "${ALLOW_DATABASE_CACHE:-fal
   export CACHE_STORE="file"
 fi
 
-# storage/app/sorherminia-web-firebase.json vive en el repo como PLANTILLA con
-# placeholders ${FIREBASE_*} (sin secretos reales) -- las credenciales reales
-# solo viven como variables de entorno (Railway) o en .env (local, igual que
-# APP_KEY arriba: en local no hay env vars de contenedor reales para esto,
-# así que hay que leerlas de .env a mano). Aquí las inyectamos en el archivo
-# en cada arranque, antes de que algo intente usar Firebase.
+# El SDK de Firebase (kreait) quiere las credenciales como ARCHIVO, pero las
+# credenciales reales solo viven como variables de entorno (Railway) o en .env
+# (local, igual que APP_KEY arriba: en local no hay env vars de contenedor
+# reales para esto, así que hay que leerlas de .env a mano). Este bloque escribe
+# ese archivo en cada arranque, antes de que algo intente usar Firebase.
+#
+# Antes el repo versionaba una plantilla (storage/app/sorherminia-web-firebase.json)
+# y acá solo se rellenaban sus campos, así que si el archivo no existía este
+# bloque no hacía nada y el push fallaba. Ahora el archivo se crea desde cero:
+# no hace falta versionar ninguna plantilla y la ruta la decide FIREBASE_CREDENTIALS.
 FIREBASE_CREDENTIALS_FILE="${FIREBASE_CREDENTIALS:-${APP_DIR}/storage/app/sorherminia-web-firebase.json}"
 for var in FIREBASE_PROJECT_ID FIREBASE_PRIVATE_KEY_ID FIREBASE_PRIVATE_KEY FIREBASE_CLIENT_EMAIL FIREBASE_CLIENT_ID FIREBASE_CLIENT_CERT_URL; do
   if [ -z "$(eval echo \${$var:-})" ]; then
@@ -100,31 +104,33 @@ for var in FIREBASE_PROJECT_ID FIREBASE_PRIVATE_KEY_ID FIREBASE_PRIVATE_KEY FIRE
   fi
 done
 
-if [ -f "${FIREBASE_CREDENTIALS_FILE}" ] && [ -n "${FIREBASE_PROJECT_ID:-}" ]; then
+if [ -n "${FIREBASE_PROJECT_ID:-}" ]; then
   echo "Generando ${FIREBASE_CREDENTIALS_FILE} desde variables de entorno..."
+  mkdir -p "$(dirname "${FIREBASE_CREDENTIALS_FILE}")"
   FIREBASE_CREDENTIALS_FILE="${FIREBASE_CREDENTIALS_FILE}" php -r '
     $path = getenv("FIREBASE_CREDENTIALS_FILE");
-    $data = json_decode(file_get_contents($path), true);
-    $map = [
-        "FIREBASE_PROJECT_ID" => "project_id",
-        "FIREBASE_PRIVATE_KEY_ID" => "private_key_id",
-        "FIREBASE_PRIVATE_KEY" => "private_key",
-        "FIREBASE_CLIENT_EMAIL" => "client_email",
-        "FIREBASE_CLIENT_ID" => "client_id",
-        "FIREBASE_CLIENT_CERT_URL" => "client_x509_cert_url",
+    $data = [
+        "type" => "service_account",
+        "project_id" => getenv("FIREBASE_PROJECT_ID") ?: "",
+        "private_key_id" => getenv("FIREBASE_PRIVATE_KEY_ID") ?: "",
+        // En .env y en Railway la llave viaja en una sola línea con "\n"
+        // literales; el SDK la necesita con saltos de línea de verdad.
+        "private_key" => str_replace("\\n", "\n", getenv("FIREBASE_PRIVATE_KEY") ?: ""),
+        "client_email" => getenv("FIREBASE_CLIENT_EMAIL") ?: "",
+        "client_id" => getenv("FIREBASE_CLIENT_ID") ?: "",
+        "auth_uri" => "https://accounts.google.com/o/oauth2/auth",
+        "token_uri" => "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url" => "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url" => getenv("FIREBASE_CLIENT_CERT_URL") ?: "",
+        "universe_domain" => "googleapis.com",
     ];
-    foreach ($map as $envKey => $jsonKey) {
-        $value = getenv($envKey);
-        if ($value === false || $value === "") {
-            continue;
-        }
-        if ($jsonKey === "private_key") {
-            $value = str_replace("\\n", "\n", $value);
-        }
-        $data[$jsonKey] = $value;
-    }
     file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
   '
+  # Es una llave privada: que no la lea cualquiera dentro del contenedor.
+  chown www-data:www-data "${FIREBASE_CREDENTIALS_FILE}" 2>/dev/null || true
+  chmod 600 "${FIREBASE_CREDENTIALS_FILE}" 2>/dev/null || true
+else
+  echo "FIREBASE_PROJECT_ID vacío: no se generan credenciales de Firebase (el push quedará deshabilitado)."
 fi
 
 mkdir -p /var/www/sorherminia/storage/framework/views

@@ -52,6 +52,13 @@ class AppServiceProvider extends ServiceProvider
             return [
                 Limit::perMinute(5)->by($this->accountKey($request)),
                 Limit::perMinute(30)->by($request->ip()),
+                // Tercer límite, solo por cuenta: la IP llega en una cabecera que
+                // pone el proxy (ver trustProxies en bootstrap/app.php) y que un
+                // atacante puede falsificar, rotándola para esquivar los dos
+                // límites de arriba. Este no depende de la IP, así que pone un
+                // techo real a los intentos contra una misma cuenta. Veinte por
+                // hora no molesta a nadie que de verdad esté entrando a trabajar.
+                Limit::perHour(20)->by('login-account:' . Str::lower((string) $request->input('email'))),
             ];
         });
 

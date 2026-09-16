@@ -1,205 +1,82 @@
-# Laravel Docker Environment
+# Hogar de Ancianos Sor Herminia — API
 
-This project is configured to run fully in Docker for both local development and production.
+API en Laravel 12 del sistema de administración de medicamentos del Hogar de Ancianos Sor
+Herminia. La interfaz de usuario es una aplicación aparte, hecha en Expo/React Native
+([Hogar-de-Ansianos-Frontend](https://github.com/david69-js/Hogar-de-Ansianos-Frontend)),
+que se publica como sitio web y como APK de Android.
 
-## Prerequisites
-- Docker
-- Docker Compose
+Acá no hay pantallas: este repositorio es solo la API (JSON), los reportes en PDF, las
+notificaciones push y las tareas programadas.
 
-## Quick Start (Local Development)
+## Qué hace
 
-0. **En Linux (no hace falta en macOS)**: exporta el UID/GID de tu usuario antes de levantar, o agrégalos al `.env` de la raíz del repo (junto a `DB_HOST`, `DB_PORT`, etc):
-   ```bash
-   export HOST_UID=$(id -u) HOST_GID=$(id -g)
-   ```
-   Sin esto, todo lo que el contenedor escribe en `laravel-app/storage` y `laravel-app/bootstrap/cache` queda con dueño `www-data` (uid 33) en el disco real del host, y tu usuario se queda sin permiso para editar/guardar/borrar esos archivos. En macOS con Docker Desktop no aplica porque el file sharing remapea el dueño de forma transparente.
+- Residentes: ficha, fotos, documentos, signos vitales y condiciones médicas (CIE-10).
+- Medicación: catálogo, prescripciones, horarios, registro de administración y de omisiones.
+- Enfermería: asignación de una enfermera responsable por residente.
+- Avisos: notificaciones push por medicamento pendiente, atrasado o sin registrar.
+- Reportes en PDF: por residente, por enfermera, de incidencias, de cumplimiento y listado general.
+- Auditoría de cambios, respaldos automáticos y recuperación de contraseña por código.
 
-1. **Start the containers**
-   ```bash
-   docker compose -f docker-compose.local.yml up -d
-   ```
-   *The first time you run this, it will automatically:*
-   - Install Composer dependencies if `vendor/` is missing (the bind mount hides the `vendor/` baked into the image, so a fresh clone needs this)
-   - Copy `.env.example` to `.env` if `.env` doesn't exist
-   - Generate and persist your `APP_KEY` into `.env` if it's missing or invalid
-   - Wait for the database to be ready and run migrations
+## Cómo está armado
 
-2. **Access the application**
-   - Web App: http://localhost:8000
-   - The application files are mapped to `./laravel-app` on your host machine.
+| Pieza | Detalle |
+|---|---|
+| Framework | Laravel 12 (PHP 8.3) |
+| Autenticación | Sanctum (tokens) + roles y permisos con spatie/laravel-permission |
+| Base de datos | MySQL 8 |
+| Archivos | Cloudflare R2 (compatible con S3) |
+| Notificaciones | Firebase Cloud Messaging |
+| Correo | Resend |
+| PDF | dompdf |
+| Contenedor | `Dockerfile` en la raíz: PHP 8.3 + Apache |
+| Producción | Railway (servicios *Backend* y *Scheduler*), desde la rama `main` |
 
-3. **Stop the containers**
-   ```bash
-   docker compose -f docker-compose.local.yml down
-   ```
+## Arrancar en local
 
----
-
-## Production Deployment
-
-For production, the configuration includes SSL support via Nginx on port 443.
-
-1. **Add SSL Certificates**
-   Place your certificates in a `./ssl` directory in the root of the project:
-   - `./ssl/server.crt`
-   - `./ssl/server.key`
-
-2. **Start the containers**
-   ```bash
-   docker-compose -f docker-compose.production.yml up -d
-   ```
-
----
-
-## Working with the Containers
-
-### Entering the Containers
-
-Often you will need to enter the container to run Artisan commands, Composer, or NPM.
-
-**Enter the PHP/Laravel application container:**
 ```bash
-docker exec -it laravel-sorherminia-app bash
+git clone <este repo> && cd Hogar-de-Ansianos-Backend-Oficial
+
+# En Linux (en macOS no hace falta): alinear el usuario del contenedor con el tuyo,
+# si no, todo lo que se escriba en storage/ queda con dueño www-data y no lo podés editar.
+export HOST_UID=$(id -u) HOST_GID=$(id -g)
+
+docker compose -f docker-compose.local.yml up -d
 ```
 
-**Enter the Database container:**
-```bash
-docker exec -it mysql_sorherminia bash
-# Once inside, you can access mysql:
-mysql -u sorherminia_user -p
-# password: root
+El primer arranque, por sí solo, instala las dependencias de Composer si falta `vendor/`,
+copia `.env.example` a `.env`, genera el `APP_KEY` y corre las migraciones.
 
-mysql -h mysql_sorherminia -u root -p sorherminia
-```
+| Servicio | Dirección |
+|---|---|
+| API | http://localhost:8000 |
+| phpMyAdmin | http://localhost:8080 |
+| Chequeo de salud | http://localhost:8000/up |
 
-**Enter the Nginx webserver container:**
-```bash
-docker exec -it nginx_sorherminia sh
-```
+Comandos frecuentes:
 
-### Running Laravel Commands (Without entering the container)
-
-You can run commands directly from your host machine by passing them to `docker exec`:
-
-**Run an Artisan command:**
 ```bash
 docker exec -it laravel-sorherminia-app php artisan migrate
-docker exec -it laravel-sorherminia-app php artisan make:controller MyController
-```
-
-**Run a Composer command:**
-```bash
-docker exec -it laravel-sorherminia-app composer require <package-name>
-docker exec -it laravel-sorherminia-app composer dump-autoload
-```
-
-### Viewing Logs
-
-To see what is happening in the background:
-
-**View all logs (and follow them live):**
-
-# Laravel + Docker + Railway
-
-Este proyecto mantiene Docker para local/prod tradicional y ahora queda preparado para desplegarse en Railway con un solo servicio web.
-
-## Requisitos
-- Docker / Docker Compose (para local)
-- Cuenta en Railway (para deploy)
-- Repositorio en GitHub/GitLab/Bitbucket conectado a Railway
-
-## Desarrollo local
-
-1. Levantar contenedores:
-```bash
-docker-compose -f docker-compose.local.yml up -d
-```
-
-2. Entrar al contenedor app:
-```bash
-docker exec -it laravel-sorherminia-app bash
-```
-
-3. Ver logs:
-```bash
+docker exec -it laravel-sorherminia-app php artisan db:seed
 docker logs -f laravel-sorherminia-app
+docker compose -f docker-compose.local.yml down
 ```
 
+## Documentación
 
-**View logs for a specific service:**
-```bash
-docker logs -f laravel-sorherminia-app
-docker logs -f mysql_sorherminia
-docker logs -f nginx_sorherminia
-```
+| Documento | De qué trata |
+|---|---|
+| [docs/API.md](docs/API.md) | Endpoints, permisos y ejemplos de cada petición |
+| [docs/MANUAL-TECNICO.md](docs/MANUAL-TECNICO.md) | Instalación, scheduler, respaldos, monitoreo y variables de entorno |
+| [docs/DESPLIEGUE-SERVIDOR-PROPIO.md](docs/DESPLIEGUE-SERVIDOR-PROPIO.md) | Cómo llevarlo a un servidor CentOS propio, como alternativa a Railway |
+| [docs/BRANCHING.md](docs/BRANCHING.md) | Plan de ramas y despliegue de los dos repositorios |
+| [docs/QA-2026-09-15.md](docs/QA-2026-09-15.md) | Revisión del código: seguridad, qué se usa y qué no |
 
-## Structure Overview
+## Reglas del proyecto
 
-- `Dockerfile`: The PHP 8.2 FPM image configuration with all required extensions (GD, Zip, MySQL, etc.)
-- `docker-compose.local.yml`: Stack for local development (Port 8000).
-- `docker-compose.production.yml`: Stack for production (Ports 80/443 with SSL).
-- `nginx.conf`: Local web server configuration.
-- `nginx-production.conf`: Production web server configuration with SSL termination.
-- `setup-laravel.sh`: Automation script that handles permissions, dependencies, and database migrations.
-- `entrypoint.sh`: Executed on container start; runs the setup script before starting PHP-FPM.
-## Deploy en Railway (paso a paso)
-
-1. Sube estos cambios a tu repositorio remoto.
-
-2. En Railway crea un proyecto nuevo:
-- `New Project` -> `Deploy from GitHub repo`.
-- Selecciona este repositorio.
-
-3. Railway detectará el `Dockerfile` de la raíz y construirá la imagen automáticamente.
-
-4. Agrega un servicio de base de datos MySQL en el mismo proyecto:
-- `New` -> `Database` -> `MySQL`.
-
-5. En el servicio web (tu app Laravel), configura estas variables en `Variables`:
-- `APP_NAME=HogarDeAnsianos`
-- `APP_ENV=production`
-- `APP_DEBUG=false`
-- `APP_URL=https://TU_DOMINIO_PUBLICO` (puedes actualizarlo después)
-- `LOG_CHANNEL=stderr`
-- `LOG_LEVEL=info`
-- `DB_CONNECTION=mysql`
-- `DB_HOST=${{MySQL.MYSQL_HOST}}`
-- `DB_PORT=${{MySQL.MYSQL_PORT}}`
-- `DB_DATABASE=${{MySQL.MYSQL_DATABASE}}`
-- `DB_USERNAME=${{MySQL.MYSQL_USER}}`
-- `DB_PASSWORD=${{MySQL.MYSQL_PASSWORD}}`
-- `SESSION_DRIVER=database`
-- `CACHE_STORE=file`
-- `QUEUE_CONNECTION=database`
-- `RUN_MIGRATIONS=true`
-- `APP_KEY=base64:...` (opcional, recomendado fijarlo manualmente)
-
-6. Genera `APP_KEY` si quieres dejarlo fijo (recomendado):
-- Localmente ejecuta:
-```bash
-cd laravel-app
-php artisan key:generate --show
-```
-- Copia el valor en la variable `APP_KEY` de Railway.
-
-7. En `Settings` del servicio web, verifica:
-- `Healthcheck Path`: `/up` (health check nativo de Laravel — ver sección de disponibilidad en `MANUAL_TECNICO.md`; más liviano y específico que `/`, que renderiza la vista de bienvenida completa)
-- `Restart Policy`: `On Failure` o `Always`
-
-8. Despliega:
-- Railway hace deploy automático al detectar push.
-- Revisa logs del deploy; el contenedor ejecuta migraciones al iniciar.
-
-9. Asigna dominio:
-- `Settings` -> `Networking` -> `Generate Domain`.
-- Copia ese dominio y actualiza `APP_URL` con el valor final.
-
-## Notas importantes para Railway
-- El contenedor ya usa el puerto dinámico `PORT` que Railway inyecta.
-- Las migraciones se ejecutan al iniciar (`RUN_MIGRATIONS=true`).
-- El storage local del contenedor es efímero; para archivos permanentes conviene migrar a S3/Cloudinary u otro almacenamiento externo.
-
-## Solución de problemas rápida
-- Si falla conexión BD: valida variables `DB_*` y que la referencia `${{MySQL.*}}` sea correcta al nombre real del servicio MySQL.
-- Si ves error 500 por clave: define `APP_KEY` fijo en Railway.
-- Si falla una migración en arranque: corrige la migración y vuelve a desplegar.
+- **El `.env` nunca se versiona**, en ninguna de sus variantes. Las credenciales viven en
+  el panel de Railway (o en el `.env` del servidor, si algún día se autoaloja).
+- **No se crean migraciones de parche**: se editan las `hr_XX_create_*` y se rehace la base
+  con `migrate:fresh --seed`. Los datos son de prueba; en producción hay que decidirlo a
+  conciencia.
+- Todo lo que ve el usuario va **en español**: mensajes de la API, validaciones, PDFs y
+  detalles de auditoría.

@@ -1,3 +1,16 @@
+# Despliegue en servidor propio (alternativa a Railway).
+# Guía paso a paso: docs/DESPLIEGUE-SERVIDOR-PROPIO.md
+#
+# Diferencias con docker-compose.local.yml, y por qué:
+#   - No se monta el código como volumen: en producción corre el que quedó dentro
+#     de la imagen, con su vendor/ ya instalado. Montar ./laravel-app encima tapa
+#     el vendor/ de la imagen y obliga a instalar Composer en el servidor.
+#   - storage/ sí es un volumen con nombre, para que los archivos y los registros
+#     sobrevivan a un "docker compose up --build".
+#   - MySQL solo escucha en 127.0.0.1: en un servidor con IP pública, "3306:3306"
+#     deja la base expuesta a internet.
+#   - Las variables salen de laravel-app/.env (no versionado), no escritas acá.
+
 services:
   app:
     build:
@@ -7,52 +20,68 @@ services:
     container_name: laravel-sorherminia-app
     restart: unless-stopped
     working_dir: /var/www/sorherminia
-    volumes:
-      - ./laravel-app:/var/www/sorherminia
+    env_file:
+      - ./laravel-app/.env
     environment:
-      # Laravel specific environment variables
       - APP_ENV=production
       - APP_DEBUG=false
       - LOG_CHANNEL=stderr
-      # Database configuration
+      - PORT=8080
       - DB_CONNECTION=mysql
       - DB_HOST=${DB_HOST:-mysql_sorherminia}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_DATABASE=${DB_DATABASE:-sorherminia}
-      - DB_USERNAME=${DB_USERNAME:-sorherminia_user}
-      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - DB_PORT=3306
+      - DB_DATABASE=${MYSQL_DATABASE:-sorherminia}
+      - DB_USERNAME=${MYSQL_USER:-sorherminia_user}
+      - DB_PASSWORD=${MYSQL_PASSWORD:?define MYSQL_PASSWORD en el .env del servidor}
+    volumes:
+      - storage:/var/www/sorherminia/storage
     networks:
       - laravel
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    healthcheck:
+      # /up es el chequeo de salud propio de Laravel (bootstrap/app.php).
+      test: ["CMD-SHELL", "php -r \"exit(@file_get_contents('http://127.0.0.1:8080/up') ? 0 : 1);\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   # Sin este servicio, app:check-pending-medications (avisos push cada minuto),
   # app:check-medication-stock (alertas de inventario diarias) y backup:run/clean
-  # nunca corren solos en producción — Laravel no tiene un cron propio, necesita
-  # algo ejecutando `schedule:work` (o `schedule:run` cada minuto) permanentemente.
+  # nunca corren solos: Laravel no tiene un cron propio, necesita algo ejecutando
+  # schedule:work permanentemente.
   scheduler:
     image: laravel-app
     container_name: laravel-sorherminia-scheduler
     restart: unless-stopped
     working_dir: /var/www/sorherminia
-    entrypoint: ["php", "artisan", "schedule:work"]
-    volumes:
-      - ./laravel-app:/var/www/sorherminia
+    env_file:
+      - ./laravel-app/.env
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
       - LOG_CHANNEL=stderr
+      - PROCESS_TYPE=scheduler
+      # Las migraciones las corre el servicio "app"; si las corrieran los dos a la
+      # vez en cada arranque, competirían por la misma tabla.
+      - RUN_MIGRATIONS=false
       - DB_CONNECTION=mysql
       - DB_HOST=${DB_HOST:-mysql_sorherminia}
-      - DB_PORT=${DB_PORT:-3306}
-      - DB_DATABASE=${DB_DATABASE:-sorherminia}
-      - DB_USERNAME=${DB_USERNAME:-sorherminia_user}
-      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - DB_PORT=3306
+      - DB_DATABASE=${MYSQL_DATABASE:-sorherminia}
+      - DB_USERNAME=${MYSQL_USER:-sorherminia_user}
+      - DB_PASSWORD=${MYSQL_PASSWORD:?define MYSQL_PASSWORD en el .env del servidor}
+    volumes:
+      - storage:/var/www/sorherminia/storage
     networks:
       - laravel
     depends_on:
-      - db
-      - app
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
 
   webserver:
     image: nginx:alpine
@@ -62,9 +91,10 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./laravel-app:/var/www/sorherminia
-      - ./nginx-production.conf:/etc/nginx/conf.d/default.conf # Configuración CON SSL
-      - ./ssl:/etc/nginx/ssl # Volumen de certificados
+      - ./nginx-production.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      # Carpeta del desafío de Let's Encrypt (certbot --webroot).
+      - ./certbot:/var/www/certbot
     networks:
       - laravel
     depends_on:
@@ -76,17 +106,18 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-sorherminia}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootsorherminia}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?define MYSQL_ROOT_PASSWORD en el .env del servidor}
       MYSQL_USER: ${MYSQL_USER:-sorherminia_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?define MYSQL_PASSWORD en el .env del servidor}
+    # Solo accesible desde el propio servidor (para mysqldump o un túnel SSH).
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - dbdata:/var/lib/mysql
     networks:
       - laravel
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
       retries: 10
 
@@ -96,3 +127,4 @@ networks:
 
 volumes:
   dbdata:
+  storage:

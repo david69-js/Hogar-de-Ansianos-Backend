@@ -1,6 +1,6 @@
 # Manual técnico — Instalación, configuración y respaldo
 
-Este documento complementa `readmi.md` (instalación local básica). Se enfoca en lo que `readmi.md` no cubre: cómo queda corriendo el *scheduler* en el despliegue real (Railway), cómo funciona el respaldo de la base de datos, y cómo restaurarlo si hace falta.
+Este documento complementa el `README.md` de la raíz (instalación local básica). Se enfoca en lo que ese no cubre: cómo queda corriendo el *scheduler* en el despliegue real (Railway), cómo funciona el respaldo de la base de datos, y cómo restaurarlo si hace falta.
 
 ## 1. Componentes del sistema
 
@@ -11,11 +11,13 @@ Este documento complementa `readmi.md` (instalación local básica). Se enfoca e
 | Base de datos | MySQL gestionado por Railway (o `mysql:8.0` en Docker Compose local) | — |
 | Archivos (fotos, documentos, respaldos) | Cloudflare R2 (bucket `sorherminia`, disco `r2` en `config/filesystems.php`) | — |
 
-`docker-compose.production.yml` (nginx + app + scheduler + mysql, todo en un servidor propio) **no es el despliegue real hoy** — es una alternativa ya preparada por si algún día se migra de Railway a un VPS propio. Si se usa esa vía, el servicio `scheduler` ya viene incluido en ese archivo y no requiere nada de la sección 3.
+`docker-compose.production.yml` (nginx + app + scheduler + mysql, todo en un servidor propio) **no es el despliegue real hoy** — es la alternativa preparada por si se migra de Railway a un servidor propio. El procedimiento completo, para CentOS, está en [DESPLIEGUE-SERVIDOR-PROPIO.md](DESPLIEGUE-SERVIDOR-PROPIO.md). Si se usa esa vía, el servicio `scheduler` ya viene incluido en ese archivo y no requiere nada de la sección 3.
+
+Nota sobre el servidor web: en Railway **no hay nginx**. La imagen del `Dockerfile` es `php:8.3-apache` y la plataforma le habla directo; `.dockerignore` excluye a propósito los `.conf` de nginx de la imagen. Esos archivos solo aplican al entorno local y al despliegue en servidor propio.
 
 ## 2. Instalación local
 
-Ver `readmi.md`, sección "Quick Start (Local Development)". En resumen:
+Ver el `README.md` de la raíz, sección "Arrancar en local". En resumen:
 
 ```bash
 docker compose -f docker-compose.local.yml up -d
@@ -154,8 +156,20 @@ No se listan valores reales aquí — solo qué existe y para qué sirve cada gr
 | Cloudflare R2 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET`, `AWS_ENDPOINT`, `AWS_USE_PATH_STYLE_ENDPOINT` | Fotos/documentos de residentes y ahora también respaldos de BD |
 | Correo | `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Notificaciones de backup |
 | Backup | `BACKUP_NOTIFICATION_EMAIL`, `BACKUP_ARCHIVE_PASSWORD` (opcional) | A quién avisar; si se define `BACKUP_ARCHIVE_PASSWORD`, los zips quedan cifrados (no configurado por defecto) |
-| Firebase | `FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_CLIENT_ID`, `FIREBASE_CLIENT_CERT_URL` | Notificaciones push (FCM). `storage/app/sorherminia-web-firebase.json` está commiteado como **plantilla** con placeholders `${FIREBASE_*}` (sin secretos) — `entrypoint.sh` lo regenera con los valores reales de estas variables en cada arranque del contenedor, antes de que algo use Firebase. `FIREBASE_PRIVATE_KEY` se guarda con `\n` literal (no saltos de línea reales) y **entre comillas simples** en `.env` local — sin comillas, el parser de `.env` de Laravel falla porque el valor trae espacios literales ("BEGIN PRIVATE KEY"). En Railway no aplica: las variables llegan ya como texto real, sin este problema de formato. |
+| Firebase | `FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_CLIENT_ID`, `FIREBASE_CLIENT_CERT_URL` | Notificaciones push (FCM). `entrypoint.sh` **escribe desde cero** el archivo de credenciales en cada arranque, con los valores de estas variables, en la ruta que indique `FIREBASE_CREDENTIALS`. Antes el repositorio versionaba una plantilla con placeholders y el script solo la rellenaba; se eliminó el 15/09/2026 porque no hacía falta versionar nada. `FIREBASE_PRIVATE_KEY` se guarda con `\n` literal (no saltos de línea reales) y **entre comillas simples** en `.env` local — sin comillas, el parser de `.env` de Laravel falla porque el valor trae espacios literales ("BEGIN PRIVATE KEY"). En Railway no aplica: las variables llegan ya como texto real, sin este problema de formato. |
 | Scheduler (solo el segundo servicio de Railway) | `PROCESS_TYPE=scheduler`, `RUN_MIGRATIONS=false` | Ver sección 3 |
+| CORS | `CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_ORIGIN_PATTERNS` | Qué sitios web pueden llamar a la API desde el navegador. Vacías = los dominios por defecto de `config/cors.php`. No afecta a la APK |
+| Recuperación | `ADMIN_RECOVERY_EMAIL`, `RESEND_API_KEY` | Correo personal del administrador sembrado y clave del proveedor de correo |
+
+## 7.1 Al desplegar: lo que no hace el despliegue solo
+
+- **Permisos nuevos**: se siembran, no se migran. Después de un cambio en
+  `RolesAndPermissionsSeeder` hay que correr
+  `php artisan db:seed --class=RolesAndPermissionsSeeder --force` en el entorno.
+  Si no, el permiso no existe y quien debería verlo no ve nada (pasó con
+  `view_management_reports`).
+- **Límites de intentos**: usan el caché configurado (`CACHE_STORE`). Con
+  `CACHE_STORE=database` la tabla `cache` tiene que existir (migración `hr_02`).
 
 ## 8. Limitaciones conocidas (a propósito, no pendientes)
 
