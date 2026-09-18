@@ -42,6 +42,22 @@ class CheckPendingMedications extends Command
      */
     private const REMINDER_DELAYED_MINUTES = 15;
 
+    /**
+     * Hasta cuántos minutos de retraso se sigue avisando.
+     *
+     * Sin este tope, el comando avisaba de CUALQUIER dosis anterior del día que no
+     * estuviera registrada, sin importar cuánto hubiera pasado: una dosis de las
+     * 07:00 podía generar su aviso de "atrasado" a las 23:58. Eso ocurre en dos
+     * casos reales — cuando se cargan prescripciones con fecha de inicio pasada, y
+     * cuando el scheduler estuvo caído un rato y se pone al día de golpe — y en
+     * ambos el resultado es una avalancha de avisos de madrugada por dosis que ya
+     * no se pueden administrar.
+     *
+     * Pasada esta ventana la dosis ya no es un recordatorio sino una omisión, y eso
+     * es asunto del historial y de los reportes, no de una notificación.
+     */
+    private const REMINDER_DELAYED_MAX_MINUTES = 60;
+
     public function handle(): int
     {
         $now = Carbon::now();
@@ -127,8 +143,10 @@ class CheckPendingMedications extends Command
                 $alertType = 'reminder_before';
             } elseif ($minutesUntilDue > -self::REMINDER_DELAYED_MINUTES) {
                 $alertType = 'due_now';
-            } else {
+            } elseif ($minutesUntilDue >= -self::REMINDER_DELAYED_MAX_MINUTES) {
                 $alertType = 'reminder_delayed';
+            } else {
+                continue; // demasiado tarde: ya no es recordatorio, es una omisión
             }
 
             // Dedup por horario exacto (schedule_id), no solo por prescripción, para
