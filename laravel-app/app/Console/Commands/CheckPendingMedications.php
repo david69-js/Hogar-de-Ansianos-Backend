@@ -53,8 +53,15 @@ class CheckPendingMedications extends Command
      * en el calendario), que es hasta cuándo deja marcar una dosis como
      * administrada. Si se cambia acá, hay que cambiarlo allá: si no, queda una
      * franja en la que la dosis no se puede administrar pero tampoco se registró.
+     *
+     * La línea de tiempo completa de una dosis:
+     *   -15 min  se habilita para administrar  +  aviso "en 15 minutos"
+     *     0 min  hora programada               +  aviso "ahora"
+     *   +15 min  sigue abierta                 +  aviso "atrasado"
+     *   +30 min  pasa a contar como urgente (etiqueta del frontend)
+     *   +45 min  se registra sola como no administrada; los avisos paran
      */
-    private const MISSED_AFTER_MINUTES = 60;
+    private const MISSED_AFTER_MINUTES = 45;
 
     public function handle(): int
     {
