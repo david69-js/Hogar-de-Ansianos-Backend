@@ -43,20 +43,18 @@ class CheckPendingMedications extends Command
     private const REMINDER_DELAYED_MINUTES = 15;
 
     /**
-     * Hasta cuántos minutos de retraso se sigue avisando.
+     * Cuántos minutos de retraso convierten una dosis pendiente en una omisión.
      *
-     * Sin este tope, el comando avisaba de CUALQUIER dosis anterior del día que no
-     * estuviera registrada, sin importar cuánto hubiera pasado: una dosis de las
-     * 07:00 podía generar su aviso de "atrasado" a las 23:58. Eso ocurre en dos
-     * casos reales — cuando se cargan prescripciones con fecha de inicio pasada, y
-     * cuando el scheduler estuvo caído un rato y se pone al día de golpe — y en
-     * ambos el resultado es una avalancha de avisos de madrugada por dosis que ya
-     * no se pueden administrar.
+     * Hasta este punto la dosis se puede administrar y se sigue recordando. Pasado
+     * este punto se registra sola como "no administrada" y dejan de mandarse
+     * avisos: ya no es un recordatorio, es un hecho que hay que documentar.
      *
-     * Pasada esta ventana la dosis ya no es un recordatorio sino una omisión, y eso
-     * es asunto del historial y de los reportes, no de una notificación.
+     * El mismo número vive en el frontend (MISSED_THRESHOLD_MINUTES, en el panel y
+     * en el calendario), que es hasta cuándo deja marcar una dosis como
+     * administrada. Si se cambia acá, hay que cambiarlo allá: si no, queda una
+     * franja en la que la dosis no se puede administrar pero tampoco se registró.
      */
-    private const REMINDER_DELAYED_MAX_MINUTES = 60;
+    private const MISSED_AFTER_MINUTES = 60;
 
     public function handle(): int
     {
@@ -117,6 +115,7 @@ class CheckPendingMedications extends Command
 
         $alertCount = 0;
         $sentCount = 0;
+        $missedCount = 0;
 
         foreach ($schedules as $schedule) {
             $prescription = $activePrescriptions->get($schedule->prescription_id);
@@ -137,16 +136,26 @@ class CheckPendingMedications extends Command
                 continue;
             }
 
+            // Pasada la ventana, la dosis se registra sola como no administrada.
+            // Queda SIN motivo y SIN responsable a propósito: nadie la administró y
+            // nadie la registró, así que atribuirla a alguien sería inventar un dato
+            // en un expediente. El motivo lo completa después quien corresponda,
+            // desde el calendario.
+            if ($minutesUntilDue <= -self::MISSED_AFTER_MINUTES) {
+                if ($this->registrarOmision($schedule, $scheduledDateTime)) {
+                    $missedCount++;
+                }
+                continue;
+            }
+
             if ($minutesUntilDue > self::REMINDER_BEFORE_MINUTES) {
                 continue; // todavía falta demasiado tiempo, nada que avisar aún
             } elseif ($minutesUntilDue > 0) {
                 $alertType = 'reminder_before';
             } elseif ($minutesUntilDue > -self::REMINDER_DELAYED_MINUTES) {
                 $alertType = 'due_now';
-            } elseif ($minutesUntilDue >= -self::REMINDER_DELAYED_MAX_MINUTES) {
-                $alertType = 'reminder_delayed';
             } else {
-                continue; // demasiado tarde: ya no es recordatorio, es una omisión
+                $alertType = 'reminder_delayed';
             }
 
             // Dedup por horario exacto (schedule_id), no solo por prescripción, para
@@ -239,7 +248,39 @@ class CheckPendingMedications extends Command
             }
         }
 
-        $this->info("Alertas creadas: {$alertCount}. Notificaciones push enviadas: {$sentCount}");
+        $this->info("Alertas creadas: {$alertCount}. Notificaciones push enviadas: {$sentCount}. Dosis registradas como no administradas: {$missedCount}.");
         return self::SUCCESS;
+    }
+
+    /**
+     * Deja registrada una dosis que nunca se administró ni se marcó.
+     *
+     * No pasa por MedicationLogController::store() a propósito: ese endpoint exige
+     * un motivo (required_if:status,missed), y acá justamente no hay ninguno que
+     * decir todavía. Tampoco toca el inventario, porque no se consumió nada.
+     *
+     * El índice único (schedule_id, scheduled_time) es lo que evita duplicados si
+     * dos procesos corren a la vez (el servicio web y el scheduler): solo uno logra
+     * insertar y el otro recibe el error y sigue de largo.
+     */
+    private function registrarOmision(MedicationSchedule $schedule, Carbon $scheduledDateTime): bool
+    {
+        try {
+            MedicationLog::create([
+                'schedule_id' => $schedule->id,
+                'scheduled_time' => $scheduledDateTime,
+                'status' => 'missed',
+                'administered_by' => null,
+                'reason_for_omission' => null,
+                // Lo mismo que pone MedicationLogController::resolveIncidentType() a
+                // toda omisión. Sin esto, las dosis registradas solas quedarían
+                // fuera del reporte de incidencias, que filtra por este campo.
+                'incident_type' => 'omision',
+            ]);
+
+            return true;
+        } catch (QueryException $e) {
+            return false; // ya estaba registrada
+        }
     }
 }
