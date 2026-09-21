@@ -26,13 +26,13 @@ class ResidentController extends Controller
     {
         // Incluye también los residentes desactivados (soft-deleted) para que el
         // frontend pueda mostrarlos con su estado y permitir reactivarlos.
-        $residents = Resident::withTrashed()->with(self::NURSE_RELATION)->orderBy('first_name')->get();
+        $residents = Resident::withTrashed()->with([self::NURSE_RELATION, 'latestImage'])->orderBy('first_name')->get();
         return response()->json($residents, 200);
     }
 
     public function show($id)
     {
-        $resident = Resident::withTrashed()->with(self::NURSE_RELATION)->findOrFail($id);
+        $resident = Resident::withTrashed()->with([self::NURSE_RELATION, 'latestImage'])->findOrFail($id);
         return response()->json($resident, 200);
     }
 
@@ -70,7 +70,7 @@ class ResidentController extends Controller
 
         return response()->json([
             'message' => $nurseId ? 'Enfermera responsable asignada' : 'Se quitó la enfermera responsable',
-            'resident' => $resident->load(self::NURSE_RELATION),
+            'resident' => $resident->load([self::NURSE_RELATION, 'latestImage']),
         ], 200);
     }
 

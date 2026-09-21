@@ -6,6 +6,7 @@ use App\Observers\AuditableObserver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -25,6 +26,16 @@ class Resident extends Model
     {
         static::observe(AuditableObserver::class);
     }
+
+    /**
+     * El listado y la ficha muestran la foto del residente. Antes no salía en
+     * ninguna respuesta de /residents — vivía solo en /resident-images — así que
+     * la interfaz pintaba siempre el ícono genérico aunque el residente tuviera
+     * foto cargada.
+     */
+    protected $appends = [
+        'profile_image_url',
+    ];
 
     protected $fillable = [
         'first_name',
@@ -51,6 +62,17 @@ class Resident extends Model
         return $this->hasMany(ResidentImage::class);
     }
 
+    /**
+     * La foto más reciente del álbum, que es la que hace de foto de perfil.
+     *
+     * latestOfMany() lo resuelve con una subconsulta, así no hay que traer el
+     * álbum entero de cada residente solo para quedarse con una foto.
+     */
+    public function latestImage(): HasOne
+    {
+        return $this->hasOne(ResidentImage::class)->latestOfMany();
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(ResidentDocument::class);
@@ -67,6 +89,15 @@ class Resident extends Model
     public function assignedNurse(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_nurse_id');
+    }
+
+    /**
+     * URL de la foto de perfil, o null si el residente no tiene ninguna. La
+     * firma temporal la resuelve ResidentImage::full_url (el bucket es privado).
+     */
+    public function getProfileImageUrlAttribute(): ?string
+    {
+        return $this->latestImage?->full_url;
     }
 
     public function getFullNameAttribute(): string
