@@ -88,17 +88,9 @@ php artisan backup:list
 
 Muestra si el disco es alcanzable, si el respaldo más reciente está "sano" (no muy viejo, no muy pesado) y cuánto espacio se está usando.
 
-### Restaurar un respaldo — paso a paso
+### Restaurar un respaldo
 
-1. Bajar el archivo desde R2 (vía el cliente que prefieras — `rclone`, el dashboard de Cloudflare, o el SDK de S3 apuntando al mismo `AWS_ENDPOINT`/`AWS_BUCKET` del `.env`). El archivo está en `backups/AAAA-MM-DD-HH-mm-ss.zip`.
-2. Descomprimirlo — adentro hay un único archivo `db-dumps/mysql-sorherminia.sql` (o similar, según `database_dump_filename_base`).
-3. **Antes de restaurar sobre una base de datos con datos reales**, respaldar el estado actual primero (`php artisan backup:run --only-db`), por si hace falta revertir.
-4. Restaurar el dump:
-   ```bash
-   # Desde dentro del contenedor/servicio con acceso a la BD:
-   mysql -h "$DB_HOST" -u "$DB_USERNAME" -p"$DB_PASSWORD" "$DB_DATABASE" < ruta/al/dump.sql
-   ```
-5. Verificar que la aplicación responde normal (`GET /api/me` con un token válido, revisar que `residents`/`users` tengan los conteos esperados).
+El procedimiento completo está en **[RESPALDO-Y-RESTAURACION.md](RESPALDO-Y-RESTAURACION.md)**: cómo listar los respaldos en R2, bajarlos e importarlos desde el contenedor, y —lo más importante— qué revisar después, porque restaurar el dump también restaura la tabla `migrations` y eso deja la base con el esquema de la fecha del respaldo, no con el del código.
 
 No existe (todavía) un comando de un solo paso "restaurar el último backup" — es un procedimiento manual deliberado, para no correr el riesgo de que un comando automatizado sobrescriba datos reales por error.
 

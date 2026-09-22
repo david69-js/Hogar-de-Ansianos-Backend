@@ -68,6 +68,7 @@ docker compose -f docker-compose.local.yml down
 | [docs/API.md](docs/API.md) | Endpoints, permisos y ejemplos de cada petición |
 | [docs/MANUAL-TECNICO.md](docs/MANUAL-TECNICO.md) | Instalación, scheduler, respaldos, monitoreo y variables de entorno |
 | [docs/DESPLIEGUE-SERVIDOR-PROPIO.md](docs/DESPLIEGUE-SERVIDOR-PROPIO.md) | Cómo llevarlo a un servidor CentOS propio, como alternativa a Railway |
+| [docs/RESPALDO-Y-RESTAURACION.md](docs/RESPALDO-Y-RESTAURACION.md) | Cómo restaurar la base y qué revisar después |
 | [docs/BRANCHING.md](docs/BRANCHING.md) | Plan de ramas y despliegue de los dos repositorios |
 | [docs/QA-2026-09-15.md](docs/QA-2026-09-15.md) | Revisión del código: seguridad, qué se usa y qué no |
 
@@ -77,6 +78,9 @@ docker compose -f docker-compose.local.yml down
   el panel de Railway (o en el `.env` del servidor, si algún día se autoaloja).
 - **No se crean migraciones de parche**: se editan las `hr_XX_create_*` y se rehace la base
   con `migrate:fresh --seed`. Los datos son de prueba; en producción hay que decidirlo a
-  conciencia.
+  conciencia. Ojo con la otra cara de esta regla: al restaurar un respaldo, la tabla
+  `migrations` vuelve con él y Laravel da por ejecutadas todas las migraciones, así que las
+  columnas agregadas después de esa fecha **no se crean solas** — ver
+  [docs/RESPALDO-Y-RESTAURACION.md](docs/RESPALDO-Y-RESTAURACION.md), sección 4.
 - Todo lo que ve el usuario va **en español**: mensajes de la API, validaciones, PDFs y
   detalles de auditoría.
