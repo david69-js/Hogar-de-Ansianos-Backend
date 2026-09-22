@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Medication;
 use App\Models\Prescription;
+use App\Services\ImageOptimizer;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * CRUD del catálogo de medicamentos. Deliberadamente NO acepta
@@ -16,6 +18,11 @@ use App\Models\Prescription;
  */
 class MedicationController extends Controller
 {
+    private function imageDisk(): string
+    {
+        return config('filesystems.default') === 'r2' ? 'r2' : 'public';
+    }
+
     public function index()
     {
         $items = Medication::orderBy('name')->get();
@@ -39,7 +46,14 @@ class MedicationController extends Controller
             // un movimiento en /medication-stock-movements, para que quede su rastro en el
             // kardex. minimum_stock sí es config editable junto con el resto del catálogo.
             'minimum_stock' => 'nullable|integer|min:0',
+            // Foto de la caja o del blíster. Mismo límite y formatos que las demás
+            // imágenes del sistema (ver UserController).
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:12288',
         ]);
+
+        if ($request->hasFile('image')) {
+            $validated['image'] = ImageOptimizer::store($request->file('image'), 'medication-images', $this->imageDisk(), 800, 82);
+        }
 
         $item = Medication::create($validated);
 
@@ -59,7 +73,27 @@ class MedicationController extends Controller
             'dosage_form' => 'nullable|string|max:100',
             'concentration' => 'nullable|string|max:100',
             'minimum_stock' => 'nullable|integer|min:0',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:12288',
+            // Permite quitar la foto sin reemplazarla por otra.
+            'remove_image' => 'sometimes|boolean',
         ]);
+
+        $removeImage = (bool) ($validated['remove_image'] ?? false);
+        unset($validated['remove_image']);
+
+        if ($request->hasFile('image')) {
+            if ($item->image) {
+                Storage::disk($this->imageDisk())->delete($item->image);
+            }
+            $validated['image'] = ImageOptimizer::store($request->file('image'), 'medication-images', $this->imageDisk(), 800, 82);
+        } elseif ($removeImage && $item->image) {
+            Storage::disk($this->imageDisk())->delete($item->image);
+            $validated['image'] = null;
+        } else {
+            // Sin archivo nuevo no se toca la foto: un PUT que solo cambia el nombre
+            // no debe borrarla por venir sin el campo.
+            unset($validated['image']);
+        }
 
         $item->update($validated);
 
@@ -84,6 +118,12 @@ class MedicationController extends Controller
             return response()->json([
                 'message' => 'No se puede eliminar: este medicamento está en una o más prescripciones. Descontinúalas primero.'
             ], 409);
+        }
+
+        if ($item->image) {
+            Storage::disk($this->imageDisk())->delete($item->image);
+            $item->image = null;
+            $item->save();
         }
 
         $item->delete();

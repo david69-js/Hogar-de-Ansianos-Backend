@@ -19,6 +19,9 @@ return new class extends Migration {
             $table->text('description')->nullable();
             $table->string('dosage_form')->nullable();
             $table->string('concentration')->nullable();
+            // Foto de la caja o del blíster. Ayuda a confirmar de un vistazo que se
+            // tomó el producto correcto, sobre todo entre genéricos parecidos.
+            $table->string('image')->nullable();
             $table->unsignedInteger('stock_quantity')->default(0);
             // Umbral para la alerta de "stock bajo" (null = sin alerta configurada).
             $table->unsignedInteger('minimum_stock')->nullable();
