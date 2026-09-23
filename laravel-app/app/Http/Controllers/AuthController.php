@@ -153,7 +153,13 @@ class AuthController extends Controller
 
         $validatedData = $request->validate([
             'first_name' => 'sometimes|string|max:255',
+            // Los cuatro campos del nombre, igual que en el alta de personal.
+            // Antes solo se aceptaban el primero y el tercero: los otros dos
+            // llegaban del formulario y se descartaban en silencio, así que
+            // quien no fuera Admin no tenía forma de corregir su propio nombre.
+            'middle_name' => 'sometimes|nullable|string|max:255',
             'last_name' => 'sometimes|string|max:255',
+            'second_last_name' => 'sometimes|nullable|string|max:255',
             'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
             'recovery_email' => 'sometimes|nullable|string|email|max:255',
             'password' => 'sometimes|string|min:8',
