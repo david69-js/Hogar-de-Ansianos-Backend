@@ -211,7 +211,7 @@ class CheckPendingMedications extends Command
                 ],
                 'due_now' => [
                     'Medicamento pendiente',
-                    "{$residentName} (Hab. {$resident->room_number}) necesita {$medicationLabel} ahora.",
+                    "{$residentName} (Hab. {$resident->room_number}) necesita {$medicationLabel} ahora (programado a las {$scheduledLabel}).",
                 ],
                 default => [
                     'Medicamento atrasado',
