@@ -219,18 +219,33 @@ class CheckPendingMedications extends Command
                 ],
             };
 
-            $recipients = $tokens;
+            // A quién le llega el aviso:
+            //   - Siempre a Admin, que es quien supervisa el hogar completo.
+            //   - Además, a la enfermera responsable del residente, si tiene una
+            //     asignada y sigue activa.
+            //
+            // A NADIE MÁS. Antes, un residente sin enfermera asignada avisaba a
+            // todo el personal, y eso hacía que cada enfermera recibiera avisos de
+            // residentes que no son suyos: con el hogar lleno son decenas por
+            // turno, y el ruido termina tapando lo que sí le toca a cada quien.
+            //
+            // Contrapartida a tener presente: un residente sin nadie asignado
+            // depende de que Admin esté pendiente. La forma de evitarlo es
+            // asignarle enfermera, no volver a avisarle a todos.
+            $destinatarios = $adminIds;
             if ($resident->assigned_nurse_id && $activeNurseIds->has($resident->assigned_nurse_id)) {
-                $assignedRecipients = $adminIds->concat([$resident->assigned_nurse_id])->unique()
-                    ->flatMap(fn ($userId) => $tokensByUser->get($userId, []))
-                    ->values()
-                    ->all();
-                // Si ni ella ni Admin activaron las notificaciones en ningún
-                // dispositivo, se avisa a todos: mejor un aviso de más que una
-                // dosis que nadie se enteró que estaba pendiente.
-                if (!empty($assignedRecipients)) {
-                    $recipients = $assignedRecipients;
-                }
+                $destinatarios = $destinatarios->concat([$resident->assigned_nurse_id]);
+            }
+
+            $recipients = $destinatarios->unique()
+                ->flatMap(fn ($userId) => $tokensByUser->get($userId, []))
+                ->values()
+                ->all();
+
+            // Nadie de los que corresponde tiene las notificaciones activadas en
+            // algún aparato. La alerta ya quedó en la bandeja de la aplicación.
+            if (empty($recipients)) {
+                continue;
             }
 
             // Un fallo de envío no debe cortar el ciclo: los demás horarios

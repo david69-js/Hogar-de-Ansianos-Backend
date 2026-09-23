@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\MedicationAlert;
 use App\Models\Resident;
-use App\Models\User;
 
 /**
  * Lectura (y marcar como leída) de las filas de aviso que generan los
@@ -24,17 +23,20 @@ class MedicationAlertController extends Controller
         $user = $request->user();
         $query = MedicationAlert::query();
 
-        // Bandeja de una enfermera: avisos de sus residentes asignados y de los
-        // que no tienen responsable (o cuya responsable está inactiva) — el mismo
-        // criterio que el push de CheckPendingMedications. Los avisos sin
-        // residente (inventario) no cambian. Admin y los demás roles ven todo.
+        // Bandeja de una enfermera: SOLO los avisos de los residentes que tiene
+        // asignados. Mismo criterio que el push de CheckPendingMedications, para
+        // que la campanita muestre exactamente lo que le llegó al teléfono.
+        //
+        // Antes veía también los de residentes sin responsable y los avisos de
+        // inventario. Eso convertía su bandeja en la del hogar entero y enterraba
+        // lo suyo entre decenas de avisos ajenos. Los de residentes sin asignar y
+        // los de inventario son de supervisión: quedan para Admin, que además es
+        // el único que puede actuar sobre el inventario.
         if ($user->hasRole('Enfermera') && !$user->hasRole('Admin')) {
-            $visibleResidents = Resident::withTrashed()->select('id')->where(fn ($q) => $q
-                ->whereNull('assigned_nurse_id')
-                ->orWhere('assigned_nurse_id', $user->id)
-                ->orWhereIn('assigned_nurse_id', User::where('status', '!=', 'active')->select('id')));
+            $misResidentes = Resident::withTrashed()->select('id')
+                ->where('assigned_nurse_id', $user->id);
 
-            $query->where(fn ($q) => $q->whereNull('resident_id')->orWhereIn('resident_id', $visibleResidents));
+            $query->whereIn('resident_id', $misResidentes);
         }
 
         return response()->json($query->get(), 200);

@@ -55,6 +55,21 @@ class PasswordResetController extends Controller
             return $genericResponse;
         }
 
+        // Sin correo de recuperación no hay recuperación automática.
+        //
+        // Antes el código se mandaba al correo institucional, que en este hogar
+        // suele ser un buzón que nadie revisa: la persona pedía el código, no le
+        // llegaba nunca, y no tenía forma de saber por qué. Ahora la única vía es
+        // que la administración le asigne una contraseña nueva desde Personal,
+        // que además la entrega en persona y verifica de quién se trata.
+        //
+        // Se devuelve la MISMA respuesta genérica: si acá se dijera "esa cuenta
+        // no tiene correo de recuperación", este endpoint revelaría qué correos
+        // están registrados, que es justo lo que evita responder siempre igual.
+        if (!$user->recovery_email) {
+            return $genericResponse;
+        }
+
         $existing = DB::table('password_reset_tokens')->where('email', $email)->first();
 
         // Anti-spam: no reenviar si el código anterior tiene menos de un minuto.
@@ -82,9 +97,9 @@ class PasswordResetController extends Controller
             ]
         );
 
-        // El correo institucional identifica la cuenta, pero suele ser un buzón
-        // que nadie revisa; el código va al correo personal real si lo tiene.
-        $destination = $user->recovery_email ?: $user->email;
+        // Siempre al correo de recuperación: es el personal, el que la persona
+        // sí revisa. Que exista ya se verificó arriba.
+        $destination = $user->recovery_email;
 
         try {
             Mail::to($destination)->send(
