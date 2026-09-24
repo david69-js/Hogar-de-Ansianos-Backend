@@ -226,23 +226,29 @@ class CheckPendingMedications extends Command
                 $resident->last_name,
                 $resident->second_last_name,
             ])));
-            $medicationLabel = trim(($medication->name ?? 'Medicamento') . ' ' . ($prescription->dosage ?? ''));
+            $medicationName = $medication->name ?? 'Medicamento';
+            $medicationLabel = trim($medicationName . ' ' . ($prescription->dosage ?? ''));
             $scheduledLabel = $scheduledDateTime->format('H:i');
 
+            // El nombre del medicamento va en el TÍTULO, no solo enterrado en el
+            // cuerpo. Un residente con dos medicamentos a la misma hora generaba
+            // dos avisos cuyo encabezado era idéntico —"Medicamento atrasado"— y
+            // que solo se distinguían leyendo hasta la mitad de la segunda línea:
+            // se leían como el mismo aviso repetido.
             [$title, $body] = match ($alertType) {
                 'reminder_before' => [
                     // Los minutos reales, no un 15 fijo: si la prescripción se
                     // creó poco antes de la hora, el aviso salía diciendo "en 15
                     // minutos" cuando faltaban muchos menos.
-                    'Medicamento en ' . max(1, (int) round($minutesUntilDue)) . ' minutos',
+                    'En ' . max(1, (int) round($minutesUntilDue)) . ' min · ' . $medicationName,
                     "{$residentName} (Hab. {$resident->room_number}) tiene {$medicationLabel} programado a las {$scheduledLabel}.",
                 ],
                 'due_now' => [
-                    'Medicamento pendiente',
+                    "Pendiente ahora · {$medicationName}",
                     "{$residentName} (Hab. {$resident->room_number}) necesita {$medicationLabel} ahora (programado a las {$scheduledLabel}).",
                 ],
                 default => [
-                    'Medicamento atrasado',
+                    "Atrasado · {$medicationName}",
                     "{$residentName} (Hab. {$resident->room_number}) sigue sin recibir {$medicationLabel} (programado a las {$scheduledLabel}).",
                 ],
             };
