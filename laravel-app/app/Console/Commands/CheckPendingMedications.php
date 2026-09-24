@@ -38,9 +38,25 @@ class CheckPendingMedications extends Command
     private const REMINDER_BEFORE_MINUTES = 15;
 
     /**
-     * A partir de cuántos minutos de retraso se manda el aviso de "sigue pendiente".
+     * Con menos de estos minutos para la toma, el recordatorio previo ya no
+     * aporta nada y no se manda.
+     *
+     * Pasaba al crear una prescripción poco antes de su hora: el comando veía
+     * que faltaban 4 minutos, mandaba igual el aviso titulado "en 15 minutos"
+     * —falso— y cuatro minutos después llegaba el de "pendiente". Dos avisos
+     * casi juntos para la misma dosis, que es lo que se leía como duplicado.
      */
-    private const REMINDER_DELAYED_MINUTES = 15;
+    private const REMINDER_BEFORE_MIN_MINUTES = 5;
+
+    /**
+     * A partir de cuántos minutos de retraso se manda el aviso de "atrasado".
+     *
+     * Era 15. A los 15 minutos la dosis todavía se está atendiendo en la
+     * práctica, así que ese aviso llegaba encima del anterior. A los 30 ya es un
+     * atraso real, y queda un cuarto de hora para actuar antes de que la dosis
+     * se registre sola como no administrada (MISSED_AFTER_MINUTES).
+     */
+    private const REMINDER_DELAYED_MINUTES = 30;
 
     /**
      * Cuántos minutos de retraso convierten una dosis pendiente en una omisión.
@@ -55,11 +71,13 @@ class CheckPendingMedications extends Command
      * franja en la que la dosis no se puede administrar pero tampoco se registró.
      *
      * La línea de tiempo completa de una dosis:
-     *   -15 min  se habilita para administrar  +  aviso "en 15 minutos"
+     *   -15 min  se habilita para administrar  +  aviso "en N minutos"
      *     0 min  hora programada               +  aviso "ahora"
-     *   +15 min  sigue abierta                 +  aviso "atrasado"
-     *   +30 min  pasa a contar como urgente (etiqueta del frontend)
+     *   +30 min  pasa a contar como urgente    +  aviso "atrasado"
      *   +45 min  se registra sola como no administrada; los avisos paran
+     *
+     * Entre la hora y los 45 minutos la dosis se puede seguir administrando, y
+     * queda registrada con su retraso (delay_minutes).
      */
     private const MISSED_AFTER_MINUTES = 45;
 
@@ -157,8 +175,12 @@ class CheckPendingMedications extends Command
 
             if ($minutesUntilDue > self::REMINDER_BEFORE_MINUTES) {
                 continue; // todavía falta demasiado tiempo, nada que avisar aún
-            } elseif ($minutesUntilDue > 0) {
+            } elseif ($minutesUntilDue > self::REMINDER_BEFORE_MIN_MINUTES) {
                 $alertType = 'reminder_before';
+            } elseif ($minutesUntilDue > 0) {
+                // Faltan menos de 5 minutos: no vale la pena un recordatorio que
+                // llegaría pegado al aviso de la hora. Se espera a ese.
+                continue;
             } elseif ($minutesUntilDue > -self::REMINDER_DELAYED_MINUTES) {
                 $alertType = 'due_now';
             } else {
@@ -206,7 +228,10 @@ class CheckPendingMedications extends Command
 
             [$title, $body] = match ($alertType) {
                 'reminder_before' => [
-                    'Medicamento en 15 minutos',
+                    // Los minutos reales, no un 15 fijo: si la prescripción se
+                    // creó poco antes de la hora, el aviso salía diciendo "en 15
+                    // minutos" cuando faltaban muchos menos.
+                    'Medicamento en ' . max(1, (int) round($minutesUntilDue)) . ' minutos',
                     "{$residentName} (Hab. {$resident->room_number}) tiene {$medicationLabel} programado a las {$scheduledLabel}.",
                 ],
                 'due_now' => [
