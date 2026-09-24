@@ -31,8 +31,14 @@ class LimpiarTokensDuplicados extends Command
     {
         $limpiar = (bool) $this->option('limpiar');
 
+        // Se agrupa por persona + plataforma + USER_AGENT, no solo por plataforma.
+        //
+        // Sin el user_agent, una Mac y un iPhone contaban como duplicados —los dos
+        // son plataforma "web"— y el comando proponía borrar uno de los dos. Son
+        // aparatos distintos: borrar el de la Mac la dejaba sin avisos. El
+        // user_agent es lo único que los distingue.
         $grupos = DeviceToken::orderByDesc('last_used_at')->orderByDesc('id')->get()
-            ->groupBy(fn ($t) => $t->user_id . '|' . $t->platform)
+            ->groupBy(fn ($t) => $t->user_id . '|' . $t->platform . '|' . $t->user_agent)
             ->filter(fn ($tokens) => $tokens->count() > 1);
 
         if ($grupos->isEmpty()) {
@@ -43,10 +49,13 @@ class LimpiarTokensDuplicados extends Command
         $nombres = User::whereIn('id', $grupos->map(fn ($t) => $t->first()->user_id))->get()
             ->mapWithKeys(fn ($u) => [$u->id => trim("{$u->first_name} {$u->last_name}") ?: $u->email]);
 
+        // El aparato se identifica por su user_agent, así que se muestra recortado
+        // para poder confirmar a ojo que son el mismo antes de borrar nada.
+
         $borrados = 0;
 
         foreach ($grupos as $clave => $tokens) {
-            [$userId, $plataforma] = explode('|', $clave);
+            [$userId, $plataforma] = explode('|', $clave, 3);
             $this->line('');
             $this->line(sprintf(
                 '%s (%s): %d tokens',

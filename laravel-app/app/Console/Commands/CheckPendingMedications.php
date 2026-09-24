@@ -110,10 +110,13 @@ class CheckPendingMedications extends Command
         // extra. Por eso aquí no se sale temprano si no hay dispositivos
         // registrados — antes lo hacía, y entonces nadie veía ninguna alerta en
         // la app hasta que alguien activara el push en algún teléfono.
-        $tokensByUser = DeviceToken::all(['user_id', 'token'])
+        // Se guarda la plataforma junto al token: el navegador necesita el mensaje
+        // SIN bloque "notification" (ver FirebaseService::sendToTokens), y la app
+        // nativa lo necesita CON él.
+        $tokensByUser = DeviceToken::all(['user_id', 'token', 'platform'])
             ->groupBy('user_id')
-            ->map(fn ($rows) => $rows->pluck('token')->all());
-        $tokens = $tokensByUser->flatten()->all();
+            ->map(fn ($rows) => $rows->map(fn ($r) => ['token' => $r->token, 'platform' => $r->platform])->all());
+        $tokens = $tokensByUser->flatten(1)->all();
 
         // Destinatarios del push (asignación de enfermera responsable): si el
         // residente tiene una enfermera activa asignada, el aviso va a ella y a
@@ -266,6 +269,7 @@ class CheckPendingMedications extends Command
                 ->flatMap(fn ($userId) => $tokensByUser->get($userId, []))
                 ->values()
                 ->all();
+            // $recipients son pares ['token' => ..., 'platform' => ...].
 
             // Nadie de los que corresponde tiene las notificaciones activadas en
             // algún aparato. La alerta ya quedó en la bandeja de la aplicación.
@@ -275,17 +279,31 @@ class CheckPendingMedications extends Command
 
             // Un fallo de envío no debe cortar el ciclo: los demás horarios
             // todavía necesitan su alerta.
+            $datos = [
+                'type' => 'medication_' . $alertType,
+                'resident_id' => (string) $resident->id,
+                'schedule_id' => (string) $schedule->id,
+            ];
+
+            $tokensWeb = array_values(array_map(
+                fn ($r) => $r['token'],
+                array_filter($recipients, fn ($r) => $r['platform'] === 'web')
+            ));
+            $tokensNativos = array_values(array_map(
+                fn ($r) => $r['token'],
+                array_filter($recipients, fn ($r) => $r['platform'] !== 'web')
+            ));
+
             try {
-                $firebase->sendToTokens(
-                    $recipients,
-                    $title,
-                    $body,
-                    [
-                        'type' => 'medication_' . $alertType,
-                        'resident_id' => (string) $resident->id,
-                        'schedule_id' => (string) $schedule->id,
-                    ]
-                );
+                // Al navegador, solo datos: si no, el SDK muestra la notificación
+                // y el service worker la muestra otra vez, y en el teléfono se
+                // veían dos avisos idénticos por cada dosis.
+                if (!empty($tokensWeb)) {
+                    $firebase->sendToTokens($tokensWeb, $title, $body, $datos, true);
+                }
+                if (!empty($tokensNativos)) {
+                    $firebase->sendToTokens($tokensNativos, $title, $body, $datos);
+                }
                 $sentCount++;
             } catch (\Throwable $e) {
                 Log::error('No se pudo enviar el push de medicamento pendiente', [
